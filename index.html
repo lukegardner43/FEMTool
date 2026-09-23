@@ -835,6 +835,11 @@
     <div class="ibox" id="rebarInfo" style="background:rgba(85,73,150,0.04);border-color:rgba(85,73,150,0.2);font-size:0.65rem;color:var(--purple);">
       d = h − c<sub>nom</sub> − φ/2
     </div>
+    <div class="ibox" id="rebarMinInfo" style="font-size:0.62rem;color:var(--text-dim);line-height:1.7;">—</div>
+    <div class="fld" style="margin-top:6px;">
+      <label>Rebar estimate allowance (%) <span style="font-weight:400;font-size:0.6rem;color:var(--text-dim)">— laps, links, wastage</span></label>
+      <input type="number" id="rebarAllow" value="0" step="5" min="0" max="100" oninput="if(gRes) renderRebarSummary(gRes)">
+    </div>
   </div>
 
   <!-- Mesh -->
@@ -879,13 +884,32 @@
 
     <!-- Column panel -->
     <div id="colPanel" style="display:none">
-      <div class="row2">
-        <div class="fld"><label>Bays X (nbx)</label><input type="number" id="nbx" value="3" min="1" max="8" oninput="updateUI()"></div>
-        <div class="fld"><label>Bays Y (nby)</label><input type="number" id="nby" value="3" min="1" max="8" oninput="updateUI()"></div>
+      <label style="display:flex;align-items:center;gap:6px;font-size:0.65rem;margin-bottom:6px;cursor:pointer;">
+        <input type="checkbox" id="colIrr" onchange="toggleIrregular()"> Irregular grid (different bay spacings)
+      </label>
+      <div id="colRegular">
+        <div class="row2">
+          <div class="fld"><label>Bays X (nbx)</label><input type="number" id="nbx" value="3" min="1" max="8" oninput="updateUI()"></div>
+          <div class="fld"><label>Bays Y (nby)</label><input type="number" id="nby" value="3" min="1" max="8" oninput="updateUI()"></div>
+        </div>
+        <div class="row2">
+          <div class="fld"><label>Bay Span X (m)</label><input type="number" id="spx" value="6" step="0.5" min="1" oninput="updateUI()"></div>
+          <div class="fld"><label>Bay Span Y (m)</label><input type="number" id="spy" value="6" step="0.5" min="1" oninput="updateUI()"></div>
+        </div>
       </div>
-      <div class="row2">
-        <div class="fld"><label>Bay Span X (m)</label><input type="number" id="spx" value="6" step="0.5" min="1" oninput="updateUI()"></div>
-        <div class="fld"><label>Bay Span Y (m)</label><input type="number" id="spy" value="6" step="0.5" min="1" oninput="updateUI()"></div>
+      <div id="colIrregular" style="display:none">
+        <div class="fld">
+          <label>Bay spacings X (m) <span style="font-weight:400;font-size:0.6rem;color:var(--text-dim)">— left → right</span></label>
+          <input type="text" id="spxList" value="" placeholder="e.g. 6, 7.5, 6" oninput="updateUI()">
+        </div>
+        <div class="fld">
+          <label>Bay spacings Y (m) <span style="font-weight:400;font-size:0.6rem;color:var(--text-dim)">— bottom → top</span></label>
+          <input type="text" id="spyList" value="" placeholder="e.g. 5, 8, 5" oninput="updateUI()">
+        </div>
+        <div style="font-size:0.58rem;color:var(--text-dim);margin:-2px 0 6px;">
+          Comma-separated spans; use <strong>n@s</strong> for repeats (e.g. <strong>2@6, 8.4</strong>).
+          Each bay is meshed separately so every column sits on a node.
+        </div>
       </div>
       <div class="row2">
         <div class="fld"><label>Column cx (mm)</label><input type="number" id="colCx" value="400" step="50" min="100" oninput="updateUI()"></div>
@@ -1169,6 +1193,7 @@
     <option value="asyb">As,y Bottom</option>
     <option value="asxt">As,x Top</option>
     <option value="asyt">As,y Top</option>
+    <option value="rebar">Rebar Check &amp; Estimate</option>
     <option value="react">Col Reactions</option>
     <option value="table">Data Table</option>
   </select>
@@ -1190,6 +1215,7 @@
     <div class="tab"     data-p="asyb"  onclick="showTab(this)">As,y Bot <small style="font-size:0.5rem">EC2</small></div>
     <div class="tab"     data-p="asxt"  onclick="showTab(this)">As,x Top <small style="font-size:0.5rem">EC2</small></div>
     <div class="tab"     data-p="asyt"  onclick="showTab(this)">As,y Top <small style="font-size:0.5rem">EC2</small></div>
+    <div class="tab"     data-p="rebar"       onclick="showTab(this)">REBAR <small style="font-size:0.5rem">EC2</small></div>
     <div class="tab"     data-p="react"       onclick="showTab(this)">COL REACTIONS</div>
     <div class="tab"     data-p="table"       onclick="showTab(this)">DATA TABLE</div>
   </div>
@@ -1365,6 +1391,17 @@
       </div>
     </div>
 
+    <!-- Reinforcement check (EC2 As,min / As,max) and quantity estimate -->
+    <div class="vpanel" id="p-rebar">
+      <div class="twrap">
+        <div class="statmsg" id="sm-rebar"
+             style="position:relative;transform:none;margin:50px auto;text-align:center;">
+          <div class="ico">🔩</div><p>NO RESULTS YET</p>
+        </div>
+        <div id="rebarSummary" style="display:none"></div>
+      </div>
+    </div>
+
     <!-- Column reactions -->
     <div class="vpanel" id="p-react">
       <div class="twrap">
@@ -1412,6 +1449,8 @@
     <div class="st"><span class="stl">Max My* Sag</span><span class="stv" id="sv-wamyb" style="color:var(--blush)">—</span></div>
     <div class="st"><span class="stl">Max As,x Bot</span><span class="stv" id="sv-asxb" style="color:var(--purple)">—</span></div>
     <div class="st"><span class="stl">Max As,y Bot</span><span class="stv" id="sv-asyb" style="color:var(--purple)">—</span></div>
+    <div class="st"><span class="stl">As,min (EC2 9.2.1.1)</span><span class="stv" id="sv-asmin" style="color:var(--purple)">—</span></div>
+    <div class="st"><span class="stl">Rebar Estimate</span><span class="stv" id="sv-rebar" style="color:var(--purple)">—</span></div>
     <div class="st"><span class="stl">Selfweight (DL)</span><span class="stv" id="sv-dl-breakdown" style="color:var(--purple)">—</span></div>
     <div class="st" id="colRst" style="display:none">
       <span class="stl">Total Col Reactions</span>
@@ -1518,7 +1557,45 @@ function updateRebarInfo(){
   const phi=+(document.getElementById('phi')||{value:16}).value||16;
   const d=(h-cnom-phi/2).toFixed(1);
   const el=document.getElementById('rebarInfo');
-  if(el) el.innerHTML=`d = ${h} − ${cnom} − ${phi/2} = <strong style="color:var(--purple)">${d} mm</strong> &nbsp;·&nbsp; f<sub>ck</sub> = ${+(document.getElementById('fck')||{value:32}).value} MPa`;
+  const fck=+(document.getElementById('fck')||{value:32}).value||32;
+  if(el) el.innerHTML=`d = ${h} − ${cnom} − ${phi/2} = <strong style="color:var(--purple)">${d} mm</strong> &nbsp;·&nbsp; f<sub>ck</sub> = ${fck} MPa`;
+  const mi=document.getElementById('rebarMinInfo');
+  if(mi){
+    const L=ec2RebarLimits(h,cnom,phi,fck);
+    mi.innerHTML=L.d>0
+      ? `A<sub>s,min</sub> = max(0.26·f<sub>ctm</sub>/f<sub>yk</sub>, 0.0013)·b·d = <strong style="color:var(--purple)">${L.AsMin.toFixed(0)} mm²/m</strong>`+
+        ` (f<sub>ctm</sub> = ${L.fctm.toFixed(2)} MPa)<br>A<sub>s,max</sub> = 0.04·A<sub>c</sub> = ${L.AsMax.toFixed(0)} mm²/m &nbsp;·&nbsp; s<sub>max</sub> = ${L.sMaxMain} mm`
+      : '<span style="color:var(--rubine)">⚠ d ≤ 0 — check h, c<sub>nom</sub> and φ</span>';
+  }
+}
+
+// ── EC2 reinforcement constants ─────────────────────────────────────────────
+const EC2_FYK      = 500;    // MPa  characteristic yield strength (B500)
+const EC2_K_LIM    = 0.206;  // K' — singly-reinforced limit (no redistribution)
+const STEEL_DENSITY= 7850;   // kg/m³ reinforcement density
+
+// Mean axial tensile strength fctm — BS EN 1992-1-1 Table 3.1
+function ec2Fctm(fck){
+  return fck<=50 ? 0.30*Math.pow(fck,2/3) : 2.12*Math.log(1+(fck+8)/10);
+}
+
+// Minimum / maximum longitudinal reinforcement for slabs (per metre width)
+// BS EN 1992-1-1 §9.3.1.1(1) → §9.2.1.1(1) Eq. 9.1N and §9.2.1.1(3); UK NA adopts
+// the recommended values.  Max bar spacing §9.3.1.1(3).
+function ec2RebarLimits(h_mm, cnom_mm, phi_mm, fck_MPa){
+  const b=1000;
+  const d=h_mm-cnom_mm-phi_mm/2;
+  const fctm=ec2Fctm(fck_MPa);
+  const AsMin1=0.26*fctm/EC2_FYK*b*d;     // 0.26·fctm/fyk·bt·d
+  const AsMin2=0.0013*b*d;                // 0.0013·bt·d
+  const AsMin=Math.max(AsMin1,AsMin2);
+  const AsMax=0.04*b*h_mm;                // 0.04·Ac
+  const sMaxMain=Math.min(3*h_mm,400);    // principal bars
+  const sMaxSec =Math.min(3.5*h_mm,450);  // secondary bars
+  // Steel implied by the chosen bar at max principal spacing (detailing floor)
+  const AsSpacing=Math.PI*phi_mm*phi_mm/4*1000/sMaxMain;
+  return{d,fctm,AsMin1,AsMin2,AsMin,AsMax,sMaxMain,sMaxSec,AsSpacing,
+    minGov: AsMin1>=AsMin2 ? '0.26·fctm/fyk·b·d' : '0.0013·b·d'};
 }
 
 // EC2 As,req per element from Wood-Armer moment M (kNm/m)
@@ -1534,7 +1611,7 @@ function calcAsreq(M_kNm_per_m, h_mm, cnom_mm, phi_mm, fck_MPa){
   // k = M / (b·d²·fck) — dimensionless
   const k = M / (b * d * d * fck_MPa);
   // k≤0.206 for singly-reinforced (EC2 limit for no compression steel)
-  const kLim = 0.206;
+  const kLim = EC2_K_LIM;
   const kc   = Math.min(k, kLim);
   // Lever arm z (mm), capped at 0.95d
   const z = Math.min(0.5 + Math.sqrt(Math.max(0, 0.25 - (15/17)*kc)), 0.95) * d;
@@ -1602,7 +1679,7 @@ function showTab(el){
 
 function updateToolbar(){
   const tb=document.getElementById('viewToolbar');
-  const noToolbar=['mesh','react','table','icrIu'];
+  const noToolbar=['mesh','react','table','icrIu','rebar'];
   if(!gRes || noToolbar.includes(gCurrentTab)){
     tb.style.display='none'; return;
   }
@@ -1636,69 +1713,176 @@ function setDeformMode(m){
   if(gRes) redrawAll();
 }
 
+/* ================================================================
+   MESH GRID LINES
+   The mesh is a structured (nx × ny) grid, but grid lines need not be
+   evenly spaced: gx[i] / gy[j] hold the x / y coordinate of each grid line.
+   Column-grid mode subdivides every bay separately so that irregular bay
+   spacings always land columns exactly on mesh nodes.
+   ================================================================ */
+function uniformGrid(L,n){
+  const g=new Float64Array(n+1);
+  for(let i=0;i<=n;i++) g[i]=L*i/n;
+  return g;
+}
+// Subdivide each span into ~elSize elements; returns grid-line coords + bay node indices
+function bayGrid(spans,elSize){
+  const divs=spans.map(s=>Math.max(1,Math.round(s/elSize)));
+  const n=divs.reduce((a,b)=>a+b,0);
+  const g=new Float64Array(n+1);
+  const bayIdx=[0];
+  let k=0, x0=0;
+  spans.forEach((s,b)=>{
+    for(let e=1;e<=divs[b];e++) g[k+e]=x0+s*e/divs[b];
+    k+=divs[b]; x0+=s; g[k]=x0; bayIdx.push(k);
+  });
+  return{g,n,divs,bayIdx};
+}
+// Index of the grid line nearest to x (g sorted ascending)
+function gIdx(g,x){
+  const n=g.length-1;
+  if(x<=g[0]) return 0;
+  if(x>=g[n]) return n;
+  let lo=0,hi=n;
+  while(hi-lo>1){ const m=(lo+hi)>>1; if(g[m]<=x) lo=m; else hi=m; }
+  return (x-g[lo])<=(g[hi]-x)?lo:hi;
+}
+// Element (cell) index containing x, plus local coordinate t∈[0,1] within it
+function gCell(g,x){
+  const n=g.length-1;
+  let lo=0,hi=n;
+  if(x<=g[0]) return{e:0,t:0};
+  if(x>=g[n]) return{e:n-1,t:1};
+  while(hi-lo>1){ const m=(lo+hi)>>1; if(g[m]<=x) lo=m; else hi=m; }
+  const w=g[lo+1]-g[lo];
+  return{e:lo,t:w>0?Math.min(1,Math.max(0,(x-g[lo])/w)):0};
+}
+
 function getMeshDivs(){
-  // Compute integer nx,ny from element size and plate dimensions
+  // Compute integer nx,ny and grid-line coordinates from element size and geometry
   const elSize = Math.max(0.05, +v('elSize'));
-  if(gMode==='edge'){
-    const Lx=+v('Lx')||6, Ly=+v('Ly')||5;
-    const nx=Math.max(2, Math.round(Lx/elSize));
-    const ny=Math.max(2, Math.round(Ly/elSize));
-    return{nx, ny, actualDx:Lx/nx, actualDy:Ly/ny};
-  } else {
+  if(gMode==='column'){
     const c=colP();
-    const nxpb=Math.max(1, Math.round(c.spx/elSize));
-    const nypb=Math.max(1, Math.round(c.spy/elSize));
-    const nx=c.nbx*nxpb, ny=c.nby*nypb;
-    return{nx, ny, nxpb, nypb, actualDx:c.spx/nxpb, actualDy:c.spy/nypb};
+    const bxg=bayGrid(c.bx,elSize), byg=bayGrid(c.by,elSize);
+    const nx=bxg.n, ny=byg.n;
+    return{nx, ny, gx:bxg.g, gy:byg.g, divsX:bxg.divs, divsY:byg.divs,
+      bayIdxX:bxg.bayIdx, bayIdxY:byg.bayIdx,
+      actualDx:c.Lx/nx, actualDy:c.Ly/ny,
+      minDx:Math.min(...c.bx.map((s,i)=>s/bxg.divs[i])), maxDx:Math.max(...c.bx.map((s,i)=>s/bxg.divs[i])),
+      minDy:Math.min(...c.by.map((s,i)=>s/byg.divs[i])), maxDy:Math.max(...c.by.map((s,i)=>s/byg.divs[i]))};
   }
+  let Lx,Ly;
+  if(gMode==='custom'){
+    Lx=+(document.getElementById('custLx')||{value:18}).value||18;
+    Ly=+(document.getElementById('custLy')||{value:18}).value||18;
+  } else {
+    Lx=+v('Lx')||6; Ly=+v('Ly')||5;
+  }
+  const nx=Math.max(2, Math.round(Lx/elSize));
+  const ny=Math.max(2, Math.round(Ly/elSize));
+  return{nx, ny, gx:uniformGrid(Lx,nx), gy:uniformGrid(Ly,ny), actualDx:Lx/nx, actualDy:Ly/ny};
 }
 
 function updateUI(){
-  const elSize=+v('elSize')||0.5;
-  if(gMode==='edge'){
-    const Lx=+v('Lx')||6, Ly=+v('Ly')||5;
-    const {nx,ny,actualDx,actualDy}=getMeshDivs();
-    const nn=(nx+1)*(ny+1), ndof=nn*3, els=nx*ny;
-    const bwEst=3*(Math.min(nx,ny)+1); // CM-reordered half-bandwidth estimate
-    const tEst=Math.max(0.05,ndof*bwEst*bwEst/5e8).toFixed(1);
-    const warn=els>20000?' ⚠ large mesh':'';
-    const dxStr=isFinite(actualDx)?actualDx.toFixed(2):'?';
-    const dyStr=isFinite(actualDy)?actualDy.toFixed(2):'?';
+  const md=getMeshDivs();
+  const {nx,ny,actualDx,actualDy}=md;
+  const nn=(nx+1)*(ny+1), ndof=nn*3, els=nx*ny;
+  const bwEst=3*(Math.min(nx,ny)+1); // CM-reordered half-bandwidth estimate
+  const tEst=Math.max(0.05,ndof*bwEst*bwEst/5e8).toFixed(1);
+  const warn=els>20000?' ⚠ large mesh':'';
+  const f2=x=>isFinite(x)?x.toFixed(2):'?';
+  if(gMode!=='column'){
     document.getElementById('meshInfo').textContent=
-      `${nx}×${ny} elements (${dxStr}×${dyStr} m) · `+
+      `${nx}×${ny} elements (${f2(actualDx)}×${f2(actualDy)} m) · `+
       `${nn} nodes · ~${tEst}s${warn}`;
-  } else {
-    const c=colP();
-    const {nx,ny,nxpb,nypb,actualDx,actualDy}=getMeshDivs();
-    const nn=(nx+1)*(ny+1), ndof=nn*3, els=nx*ny;
-    const bwEst2=3*(Math.min(nx,ny)+1);
-    const tEst=Math.max(0.05,ndof*bwEst2*bwEst2/5e8).toFixed(1);
-    const warn=els>20000?' ⚠ large mesh':'';
-    const dxStr=isFinite(actualDx)?actualDx.toFixed(2):'?';
-    const dyStr=isFinite(actualDy)?actualDy.toFixed(2):'?';
-    document.getElementById('colInfo').textContent=
-      `Plate ${(c.nbx*c.spx).toFixed(1)}×${(c.nby*c.spy).toFixed(1)} m · `+
-      `${(c.nbx+1)*(c.nby+1)} columns · ${els} elements · ~${tEst}s${warn}`;
-    document.getElementById('meshInfo').textContent=
-      `${nxpb}×${nypb} el/bay (${dxStr}×${dyStr} m) · ${els} total · ~${tEst}s${warn}`;
-    drawPreview(c);
+    return;
   }
+  const c=colP();
+  const rng=(a,b)=>Math.abs(a-b)<1e-9?f2(a):`${f2(a)}–${f2(b)}`;
+  const errTxt=c.err?`⚠ ${c.err} `:'';
+  document.getElementById('colInfo').textContent=
+    `${errTxt}Plate ${c.Lx.toFixed(2)}×${c.Ly.toFixed(2)} m · `+
+    `${(c.nbx+1)*(c.nby+1)} columns · ${els} elements · ~${tEst}s${warn}`;
+  document.getElementById('meshInfo').textContent=
+    `${nx}×${ny} el (${rng(md.minDx,md.maxDx)}×${rng(md.minDy,md.maxDy)} m) · ${els} total · ~${tEst}s${warn}`;
+  drawPreview(c);
 }
 
 function v(id){return document.getElementById(id).value;}
 
+// Parse a bay-spacing list: "6, 7.5, 6"  or with repeats "3@6, 7.5" / "3x6"
+// Returns array of positive spans (m), or null if invalid/empty.
+function parseSpans(str){
+  const out=[];
+  const toks=String(str||'').split(/[,;\s]+/).filter(t=>t.length);
+  for(const t of toks){
+    const m=t.match(/^(\d+)\s*[@x×*]\s*([0-9]*\.?[0-9]+)$/i);
+    if(m){
+      const n=+m[1], s=+m[2];
+      if(!(n>=1&&n<=50&&s>0)) return null;
+      for(let i=0;i<n;i++) out.push(s);
+    } else {
+      const s=+t;
+      if(!(s>0)||!isFinite(s)) return null;
+      out.push(s);
+    }
+  }
+  return out.length?out:null;
+}
+
+// Toggle between regular (n bays × span) and irregular (list of spans) column grid input
+function toggleIrregular(){
+  const irr=document.getElementById('colIrr').checked;
+  document.getElementById('colRegular').style.display=irr?'none':'block';
+  document.getElementById('colIrregular').style.display=irr?'block':'none';
+  if(irr){
+    // Pre-fill lists from the regular inputs the first time (or when empty)
+    const fill=(listId,nId,sId)=>{
+      const el=document.getElementById(listId);
+      if(!parseSpans(el.value)){
+        const n=Math.max(1,+v(nId)||1), s=+v(sId)||6;
+        el.value=Array(n).fill(s).join(', ');
+      }
+    };
+    fill('spxList','nbx','spx'); fill('spyList','nby','spy');
+  }
+  updateUI();
+}
+
 function colP(){
+  const irr=!!(document.getElementById('colIrr')||{}).checked;
+  let bx=null, by=null, err='';
+  if(irr){
+    bx=parseSpans(v('spxList')); by=parseSpans(v('spyList'));
+    if(!bx) err+='Invalid X bay spacings — enter positive numbers, e.g. 6, 7.5 or 2@6. ';
+    if(!by) err+='Invalid Y bay spacings — enter positive numbers, e.g. 6, 7.5 or 2@6. ';
+  }
+  if(!bx) bx=Array(Math.max(1,+v('nbx')||1)).fill(Math.max(0.1,+v('spx')||6));
+  if(!by) by=Array(Math.max(1,+v('nby')||1)).fill(Math.max(0.1,+v('spy')||6));
+  const cum=a=>{const r=[0];a.forEach(s=>r.push(r[r.length-1]+s));return r;};
+  const xs=cum(bx), ys=cum(by);
   return{
-    nbx:Math.max(1,+v('nbx')), nby:Math.max(1,+v('nby')),
-    spx:+v('spx'), spy:+v('spy'),
+    irr, err: err.trim(),
+    nbx:bx.length, nby:by.length,
+    bx, by,                 // individual bay spans (m)
+    xs, ys,                 // grid-line coordinates (m)
+    Lx:xs[bx.length], Ly:ys[by.length],
+    spx:Math.max(...bx), spy:Math.max(...by),   // largest spans (for L/δ)
     cx: +v('colCx')/1000, cy: +v('colCy')/1000
   };
+}
+
+// Grid reference label: rows A, B, … Z, AA, AB …  columns 1, 2, …
+function gridRef(ci,cj){
+  let s='', n=cj;
+  do{ s=String.fromCharCode(65+n%26)+s; n=Math.floor(n/26)-1; }while(n>=0);
+  return s+(ci+1);
 }
 
 function buildColumns(c){
   const cols=[];
   for(let ci=0;ci<=c.nbx;ci++) for(let cj=0;cj<=c.nby;cj++){
-    cols.push({ci,cj,x:ci*c.spx,y:cj*c.spy,cx:c.cx,cy:c.cy});
+    cols.push({ci,cj,x:c.xs[ci],y:c.ys[cj],cx:c.cx,cy:c.cy});
   }
   return cols;
 }
@@ -1713,7 +1897,7 @@ function drawPreview(c){
   ctx.clearRect(0,0,W,H);
   ctx.fillStyle='#F4F4F4'; ctx.fillRect(0,0,W,H);
 
-  const Lx=c.nbx*c.spx, Ly=c.nby*c.spy;
+  const Lx=c.Lx, Ly=c.Ly;
   const pw=W-2*pad, ph=H-2*pad;
   const sx=wx=>pad+wx/Lx*pw;
   const sy=wy=>pad+ph-wy/Ly*ph;
@@ -1725,31 +1909,33 @@ function drawPreview(c){
 
   // Grid lines
   ctx.strokeStyle='rgba(85,73,150,0.2)'; ctx.lineWidth=0.6; ctx.setLineDash([3,3]);
-  for(let i=0;i<=c.nbx;i++){ctx.beginPath();ctx.moveTo(sx(i*c.spx),pad);ctx.lineTo(sx(i*c.spx),pad+ph);ctx.stroke();}
-  for(let j=0;j<=c.nby;j++){ctx.beginPath();ctx.moveTo(pad,sy(j*c.spy));ctx.lineTo(pad+pw,sy(j*c.spy));ctx.stroke();}
+  for(let i=0;i<=c.nbx;i++){ctx.beginPath();ctx.moveTo(sx(c.xs[i]),pad);ctx.lineTo(sx(c.xs[i]),pad+ph);ctx.stroke();}
+  for(let j=0;j<=c.nby;j++){ctx.beginPath();ctx.moveTo(pad,sy(c.ys[j]));ctx.lineTo(pad+pw,sy(c.ys[j]));ctx.stroke();}
   ctx.setLineDash([]);
 
-  // Bay span labels (first bay only)
-  ctx.fillStyle='rgba(0,212,255,0.5)'; ctx.font='7px Space Mono'; ctx.textAlign='center';
-  ctx.fillText(`${c.spx}m`,sx(c.spx/2),pad+ph+11);
-  ctx.save(); ctx.translate(pad-10,sy(c.spy/2)); ctx.rotate(-Math.PI/2);
-  ctx.fillText(`${c.spy}m`,0,0); ctx.restore();
+  // Bay span labels (every bay — spans may differ)
+  ctx.fillStyle='rgba(85,73,150,0.7)'; ctx.font='7px Space Mono'; ctx.textAlign='center';
+  for(let i=0;i<c.nbx;i++) ctx.fillText(`${+c.bx[i].toFixed(3)}`,sx((c.xs[i]+c.xs[i+1])/2),pad+ph+11);
+  for(let j=0;j<c.nby;j++){
+    ctx.save(); ctx.translate(pad-10,sy((c.ys[j]+c.ys[j+1])/2)); ctx.rotate(-Math.PI/2);
+    ctx.fillText(`${+c.by[j].toFixed(3)}`,0,0); ctx.restore();
+  }
 
   // Columns
   const cW=Math.max(5,c.cx/Lx*pw), cH=Math.max(5,c.cy/Ly*ph);
   for(let ci=0;ci<=c.nbx;ci++) for(let cj=0;cj<=c.nby;cj++){
-    const x=sx(ci*c.spx),y=sy(cj*c.spy);
+    const x=sx(c.xs[ci]),y=sy(c.ys[cj]);
     ctx.fillStyle='rgba(85,73,150,0.75)'; ctx.fillRect(x-cW/2,y-cH/2,cW,cH);
     ctx.strokeStyle='rgba(85,73,150,1)'; ctx.lineWidth=1; ctx.strokeRect(x-cW/2,y-cH/2,cW,cH);
     // Grid ref label A1, A2... B1...
-    const ref=String.fromCharCode(65+cj)+(ci+1);
+    const ref=gridRef(ci,cj);
     ctx.fillStyle='rgba(85,73,150,0.95)'; ctx.font='6px Space Mono'; ctx.textAlign='center';
     ctx.fillText(ref,x,y+2);
   }
 
   // Footer
   ctx.fillStyle='rgba(85,73,150,0.7)'; ctx.font='7px Space Mono'; ctx.textAlign='center';
-  ctx.fillText(`${c.nbx}×${c.nby} bays  |  ${(c.nbx+1)*(c.nby+1)} columns  |  col ${+v('colCx')}×${+v('colCy')} mm`,W/2,H-3);
+  ctx.fillText(`${c.nbx}×${c.nby} bays${c.irr?' (irregular)':''}  |  ${(c.nbx+1)*(c.nby+1)} columns  |  col ${+v('colCx')}×${+v('colCy')} mm`,W/2,H-3);
 }
 
 /* ================================================================
@@ -1892,17 +2078,17 @@ async function solveAsync(){
   const swVal  = +(+document.getElementById('density').value * (+document.getElementById('thk').value/1000)).toFixed(3);
 
   // ── Geometry ──────────────────────────────────────────────────────────────
-  let Lx,Ly,nx,ny,columns=null,geo=null;
+  let Lx,Ly,nx,ny,gx,gy,columns=null,geo=null;
   let custPoly=null;   // polygon mask for custom mode
   let custVoids=[];    // void polygons [{poly,closed}]
   let custWalls=[];    // wall lines [{x0,y0,x1,y1,t}]
   if(gMode==='edge'){
     Lx=+v('Lx'); Ly=+v('Ly');
-    const md=getMeshDivs(); nx=md.nx; ny=md.ny;
+    const md=getMeshDivs(); nx=md.nx; ny=md.ny; gx=md.gx; gy=md.gy;
   } else if(gMode==='custom'){
     const cg=custGetGeometry();  // throws if not ready
     Lx=cg.Lx; Ly=cg.Ly;
-    const md=getMeshDivs(); nx=md.nx; ny=md.ny;
+    const md=getMeshDivs(); nx=md.nx; ny=md.ny; gx=md.gx; gy=md.gy;
     custPoly=cg.poly;
     custVoids=cg.voids||[];
     custWalls=cg.walls||[];
@@ -1925,10 +2111,12 @@ async function solveAsync(){
     }
   } else {
     const c=colP();
-    Lx=c.nbx*c.spx; Ly=c.nby*c.spy;
-    const md=getMeshDivs(); nx=md.nx; ny=md.ny;
+    if(c.err) throw new Error(c.err);
+    Lx=c.Lx; Ly=c.Ly;
+    const md=getMeshDivs(); nx=md.nx; ny=md.ny; gx=md.gx; gy=md.gy;
     columns=buildColumns(c);
-    geo={...c,nbx:c.nbx,nby:c.nby,nxpb:md.nxpb,nypb:md.nypb,Ldiag:Math.hypot(c.spx,c.spy)};
+    // L for L/δ: diagonal of the largest bay (irregular grids → governing bay)
+    geo={...c,nbx:c.nbx,nby:c.nby,divsX:md.divsX,divsY:md.divsY,Ldiag:Math.hypot(c.spx,c.spy)};
   }
   const ndof_est=(nx+1)*(ny+1)*3;
   const elCount=nx*ny;
@@ -1938,6 +2126,8 @@ async function solveAsync(){
     console.warn(`Large mesh: ${elCount} elements — banded solver active.`);
   }
 
+  // Average element size — the mesh may be non-uniform in column-grid mode, so
+  // node positions always come from the grid-line arrays gx/gy.
   const dx=Lx/nx, dy=Ly/ny;
   const nn=(nx+1)*(ny+1); let ndof=nn*3;
   const nid=(i,j)=>j*(nx+1)+i;
@@ -1949,7 +2139,7 @@ async function solveAsync(){
   // without changing the element formulation — shd() handles arbitrary quads.
   const nodeX=new Float64Array(nn), nodeY=new Float64Array(nn);
   for(let j=0;j<=ny;j++) for(let i=0;i<=nx;i++){
-    nodeX[nid(i,j)]=i*dx; nodeY[nid(i,j)]=j*dy;
+    nodeX[nid(i,j)]=gx[i]; nodeY[nid(i,j)]=gy[j];
   }
   function _nearestOnPoly(wx,wy,poly){
     let bestD=Infinity,bx=wx,by=wy;
@@ -1967,7 +2157,7 @@ async function solveAsync(){
   if(custPoly){
     const snapDist=Math.min(dx,dy)*0.85;
     for(let j=0;j<=ny;j++) for(let i=0;i<=nx;i++){
-      const nd=nid(i,j),wx=i*dx,wy=j*dy;
+      const nd=nid(i,j),wx=gx[i],wy=gy[j];
       if(!custPointInPoly(wx,wy,custPoly)){
         const{bx,by,d}=_nearestOnPoly(wx,wy,custPoly);
         if(d<=snapDist){nodeX[nd]=bx;nodeY[nd]=by;}
@@ -1992,9 +2182,9 @@ async function solveAsync(){
     if(!custPoly) return 'interior';
     const ci=[ex,ex+1,ex+1,ex],cj=[ey,ey,ey+1,ey+1];
     let inside=0;
-    for(let k=0;k<4;k++) if(_cornerIn(ci[k]*dx,cj[k]*dy,custPoly)) inside++;
+    for(let k=0;k<4;k++) if(_cornerIn(gx[ci[k]],gy[cj[k]],custPoly)) inside++;
     if(inside===0) return 'outside';
-    for(const v of custVoids){if(!v.closed)continue;let iv=0;for(let k=0;k<4;k++)if(_cornerIn(ci[k]*dx,cj[k]*dy,v.poly))iv++;if(iv>=3)return 'outside';}
+    for(const v of custVoids){if(!v.closed)continue;let iv=0;for(let k=0;k<4;k++)if(_cornerIn(gx[ci[k]],gy[cj[k]],v.poly))iv++;if(iv>=3)return 'outside';}
     if(inside===4) return 'interior';
     if(inside>=2) return 'boundary';
     return 'outside';
@@ -2081,8 +2271,8 @@ async function solveAsync(){
   const colNodeRows=new Map();
   if(gMode==='column'&&columns){
     for(const col of columns){
-      const iC=Math.min(nx,Math.max(0,Math.round(col.x/dx)));
-      const jC=Math.min(ny,Math.max(0,Math.round(col.y/dy)));
+      const iC=Math.min(nx,Math.max(0,gIdx(gx,col.x)));
+      const jC=Math.min(ny,Math.max(0,gIdx(gy,col.y)));
       colNodeRows.set(3*nid(iC,jC), new Map());
     }
   }
@@ -2172,8 +2362,8 @@ async function solveAsync(){
           for(let si=0;si<=nSamp;si++){
             const t=si/nSamp;
             const px=p0.x+(p1.x-p0.x)*t, py=p0.y+(p1.y-p0.y)*t;
-            const ic=Math.max(0,Math.min(nx,Math.round(px/dx)));
-            const jc=Math.max(0,Math.min(ny,Math.round(py/dy)));
+            const ic=Math.max(0,Math.min(nx,gIdx(gx,px)));
+            const jc=Math.max(0,Math.min(ny,gIdx(gy,py)));
             // Trapezoidal weight: endpoints get half-weight (shared with adjacent edges)
             const tw=(si===0||si===nSamp)?0.5:1;
             F[3*nid(ic,jc)]+=q*(edgeLen/nSamp)*tw;
@@ -2181,15 +2371,15 @@ async function solveAsync(){
         }
       } else {
         // Rectangular perimeter (default)
-        for(let ex=0;ex<nx;ex++){F[3*nid(ex,0)]+=q*dx/2;F[3*nid(ex+1,0)]+=q*dx/2;}
-        for(let ex=0;ex<nx;ex++){F[3*nid(ex,ny)]+=q*dx/2;F[3*nid(ex+1,ny)]+=q*dx/2;}
-        for(let ey=0;ey<ny;ey++){F[3*nid(0,ey)]+=q*dy/2;F[3*nid(0,ey+1)]+=q*dy/2;}
-        for(let ey=0;ey<ny;ey++){F[3*nid(nx,ey)]+=q*dy/2;F[3*nid(nx,ey+1)]+=q*dy/2;}
+        for(let ex=0;ex<nx;ex++){F[3*nid(ex,0)]+=q*(gx[ex+1]-gx[ex])/2;F[3*nid(ex+1,0)]+=q*(gx[ex+1]-gx[ex])/2;}
+        for(let ex=0;ex<nx;ex++){F[3*nid(ex,ny)]+=q*(gx[ex+1]-gx[ex])/2;F[3*nid(ex+1,ny)]+=q*(gx[ex+1]-gx[ex])/2;}
+        for(let ey=0;ey<ny;ey++){F[3*nid(0,ey)]+=q*(gy[ey+1]-gy[ey])/2;F[3*nid(0,ey+1)]+=q*(gy[ey+1]-gy[ey])/2;}
+        for(let ey=0;ey<ny;ey++){F[3*nid(nx,ey)]+=q*(gy[ey+1]-gy[ey])/2;F[3*nid(nx,ey+1)]+=q*(gy[ey+1]-gy[ey])/2;}
       }
       return F;
     }
     if(lt==='central'){
-      const ci=Math.round(nx/2), cj=Math.round(ny/2);
+      const ci=gIdx(gx,Lx/2), cj=gIdx(gy,Ly/2);
       F[3*nid(ci,cj)]+=q;
       return F;
     }
@@ -2263,8 +2453,8 @@ async function solveAsync(){
           for(let si=0;si<=nSamp;si++){
             const t=si/nSamp;
             const px=p0.x+(p1.x-p0.x)*t,py=p0.y+(p1.y-p0.y)*t;
-            const ic=Math.max(0,Math.min(nx,Math.round(px/dx)));
-            const jc=Math.max(0,Math.min(ny,Math.round(py/dy)));
+            const ic=Math.max(0,Math.min(nx,gIdx(gx,px)));
+            const jc=Math.max(0,Math.min(ny,gIdx(gy,py)));
             const tw=(si===0||si===nSamp)?0.5:1; // trapezoidal: endpoints half-weight
             F[3*nid(ic,jc)]+=qFL_perim*(eLen/nSamp)*tw;
           }
@@ -2275,10 +2465,10 @@ async function solveAsync(){
         const emFL={ssss:[1,1,1,1],cccc:[1,1,1,1],cscs:[1,1,1,1],
                     sssf:[1,1,0,1],cccf:[1,1,0,1],ccss:[1,1,1,1]};
         const edg=(gMode==='edge')?(emFL[gBC]||[1,1,1,1]):[1,1,1,1];
-        if(edg[0]){for(let ex=0;ex<nx;ex++){F[3*nid(ex,0)]+=qFL_perim*dx/2;F[3*nid(ex+1,0)]+=qFL_perim*dx/2;}}
-        if(edg[1]){for(let ey=0;ey<ny;ey++){F[3*nid(nx,ey)]+=qFL_perim*dy/2;F[3*nid(nx,ey+1)]+=qFL_perim*dy/2;}}
-        if(edg[2]){for(let ex=0;ex<nx;ex++){F[3*nid(ex,ny)]+=qFL_perim*dx/2;F[3*nid(ex+1,ny)]+=qFL_perim*dx/2;}}
-        if(edg[3]){for(let ey=0;ey<ny;ey++){F[3*nid(0,ey)]+=qFL_perim*dy/2;F[3*nid(0,ey+1)]+=qFL_perim*dy/2;}}
+        if(edg[0]){for(let ex=0;ex<nx;ex++){F[3*nid(ex,0)]+=qFL_perim*(gx[ex+1]-gx[ex])/2;F[3*nid(ex+1,0)]+=qFL_perim*(gx[ex+1]-gx[ex])/2;}}
+        if(edg[1]){for(let ey=0;ey<ny;ey++){F[3*nid(nx,ey)]+=qFL_perim*(gy[ey+1]-gy[ey])/2;F[3*nid(nx,ey+1)]+=qFL_perim*(gy[ey+1]-gy[ey])/2;}}
+        if(edg[2]){for(let ex=0;ex<nx;ex++){F[3*nid(ex,ny)]+=qFL_perim*(gx[ex+1]-gx[ex])/2;F[3*nid(ex+1,ny)]+=qFL_perim*(gx[ex+1]-gx[ex])/2;}}
+        if(edg[3]){for(let ey=0;ey<ny;ey++){F[3*nid(0,ey)]+=qFL_perim*(gy[ey+1]-gy[ey])/2;F[3*nid(0,ey+1)]+=qFL_perim*(gy[ey+1]-gy[ey])/2;}}
       }
     }
     return F;
@@ -2303,8 +2493,8 @@ async function solveAsync(){
       return false;
     }
     if(columns) for(const col of columns){
-      let iC=Math.max(0,Math.min(nx,Math.round(col.x/dx)));
-      let jC=Math.max(0,Math.min(ny,Math.round(col.y/dy)));
+      let iC=Math.max(0,Math.min(nx,gIdx(gx,col.x)));
+      let jC=Math.max(0,Math.min(ny,gIdx(gy,col.y)));
       // If this node has no active elements, find nearest node in 3×3 that does
       if(!_nodeHasElement(iC,jC)){
         let bestD=Infinity;
@@ -2329,8 +2519,8 @@ async function solveAsync(){
         const wt_=si/nSampW;
         const wxi=wall.x0+(wall.x1-wall.x0)*wt_;
         const wyi=wall.y0+(wall.y1-wall.y0)*wt_;
-        const iW=Math.max(0,Math.min(nx,Math.round(wxi/dx)));
-        const jW=Math.max(0,Math.min(ny,Math.round(wyi/dy)));
+        const iW=Math.max(0,Math.min(nx,gIdx(gx,wxi)));
+        const jW=Math.max(0,Math.min(ny,gIdx(gy,wyi)));
         fixed.add(3*nid(iW,jW)); // simply supported: w=0, rotations remain free
       }
     }
@@ -2344,8 +2534,8 @@ async function solveAsync(){
     }
     // 'free': no edge BC — columns alone provide support (true flat slab behaviour)
     for(const col of columns){
-      const iC=Math.min(nx,Math.max(0,Math.round(col.x/dx)));
-      const jC=Math.min(ny,Math.max(0,Math.round(col.y/dy)));
+      const iC=Math.min(nx,Math.max(0,gIdx(gx,col.x)));
+      const jC=Math.min(ny,Math.max(0,gIdx(gy,col.y)));
       const nd=nid(iC,jC);
       fixed.add(3*nd); fixed.add(3*nd+1); fixed.add(3*nd+2);
     }
@@ -2465,6 +2655,8 @@ async function solveAsync(){
   const cnom_mm= +(document.getElementById('cnom').value)||30;
   const phi_mm = +(document.getElementById('phi').value)||16;
   const fck_MPa= +(document.getElementById('fck').value)||32;
+  // As_*   : As,req from the Wood-Armer moment alone
+  // As_*_d : design As = As,req raised to As,min (BS EN 1992-1-1 §9.3.1.1)
   const As_xbot=new Float64Array(nn), As_ybot=new Float64Array(nn);
   const As_xtop=new Float64Array(nn), As_ytop=new Float64Array(nn);
   for(let i=0;i<nn;i++){
@@ -2473,6 +2665,79 @@ async function solveAsync(){
     As_xtop[i]=calcAsreq(WA_Mx_top[i], h_mm, cnom_mm, phi_mm, fck_MPa);
     As_ytop[i]=calcAsreq(WA_My_top[i], h_mm, cnom_mm, phi_mm, fck_MPa);
   }
+
+  // ── Minimum / maximum reinforcement check — BS EN 1992-1-1 ────────────────
+  const rlim=ec2RebarLimits(h_mm, cnom_mm, phi_mm, fck_MPa);
+  // Nodes that belong to the slab (at least one active element)
+  const nodeActive=new Uint8Array(nn);
+  for(let ey=0;ey<ny;ey++) for(let ex=0;ex<nx;ex++){
+    if(elType(ex,ey)==='outside') continue;
+    nodeActive[nid(ex,ey)]=nodeActive[nid(ex+1,ey)]=nodeActive[nid(ex+1,ey+1)]=nodeActive[nid(ex,ey+1)]=1;
+  }
+  // Bottom (sagging) steel: As,min provided throughout the slab.
+  // Top (hogging) steel: As,min applies wherever a hogging demand exists.
+  const As_xbot_d=new Float64Array(nn), As_ybot_d=new Float64Array(nn);
+  const As_xtop_d=new Float64Array(nn), As_ytop_d=new Float64Array(nn);
+  const layerDefs=[
+    {key:'xbot',name:'Bottom X',req:As_xbot,des:As_xbot_d,M:WA_Mx_bot,bottom:true},
+    {key:'ybot',name:'Bottom Y',req:As_ybot,des:As_ybot_d,M:WA_My_bot,bottom:true},
+    {key:'xtop',name:'Top X',   req:As_xtop,des:As_xtop_d,M:WA_Mx_top,bottom:false},
+    {key:'ytop',name:'Top Y',   req:As_ytop,des:As_ytop_d,M:WA_My_top,bottom:false},
+  ];
+  const rcCheck={limits:rlim, layers:[], nNodes:0, nKexceed:0, nAsMaxExceed:0};
+  const d_mm=rlim.d;
+  for(let i=0;i<nn;i++) if(nodeActive[i]) rcCheck.nNodes++;
+  for(const L of layerDefs){
+    let maxReq=0, nTension=0, nMinGov=0, nK=0, nMax=0;
+    for(let i=0;i<nn;i++){
+      if(!nodeActive[i]) continue;
+      const req=L.req[i];
+      const inTension=L.bottom || req>0;
+      L.des[i]=inTension ? Math.max(req, rlim.AsMin) : 0;
+      if(req>maxReq) maxReq=req;
+      if(inTension){ nTension++; if(req<rlim.AsMin) nMinGov++; }
+      if(req>rlim.AsMax) nMax++;
+      const k=d_mm>0 ? L.M[i]*1e6/(1000*d_mm*d_mm*fck_MPa) : Infinity;
+      if(L.M[i]>0 && k>EC2_K_LIM) nK++;
+    }
+    rcCheck.layers.push({key:L.key,name:L.name,maxReq,nTension,nMinGov,nKexceed:nK,nAsMaxExceed:nMax,
+      maxDes:Math.max(maxReq, nTension?rlim.AsMin:0)});
+    rcCheck.nKexceed+=nK; rcCheck.nAsMaxExceed+=nMax;
+  }
+
+  // ── Reinforcement quantity estimate for the whole slab ───────────────────
+  // Integrate design As (mm²/m ≡ 1e-6 m³ of steel per m² of slab) over every
+  // active element, using the mean of its four corner values.
+  let slabArea=0;
+  const layerVol={xbot:0,ybot:0,xtop:0,ytop:0}, layerVolReq={xbot:0,ybot:0,xtop:0,ytop:0};
+  for(let ey=0;ey<ny;ey++) for(let ex=0;ex<nx;ex++){
+    const et=elType(ex,ey); if(et==='outside') continue;
+    const n0=nid(ex,ey),n1=nid(ex+1,ey),n2=nid(ex+1,ey+1),n3=nid(ex,ey+1);
+    let A;
+    if(et==='boundary'){
+      const nc=nn+cNodeMap[ey*nx+ex];
+      A=_triA(n0,n1,nc)+_triA(n1,n2,nc)+_triA(n2,n3,nc)+_triA(n3,n0,nc);
+    } else {
+      A=0.5*Math.abs((nodeX[n0]*nodeY[n1]-nodeX[n1]*nodeY[n0])+(nodeX[n1]*nodeY[n2]-nodeX[n2]*nodeY[n1])
+                    +(nodeX[n2]*nodeY[n3]-nodeX[n3]*nodeY[n2])+(nodeX[n3]*nodeY[n0]-nodeX[n0]*nodeY[n3]));
+    }
+    slabArea+=A;
+    for(const L of layerDefs){
+      layerVol[L.key]   +=A*(L.des[n0]+L.des[n1]+L.des[n2]+L.des[n3])/4*1e-6;
+      layerVolReq[L.key]+=A*(L.req[n0]+L.req[n1]+L.req[n2]+L.req[n3])/4*1e-6;
+    }
+  }
+  const concVol=slabArea*h_mm/1000;
+  const rebarEst={slabArea, concVol, h_mm, density:STEEL_DENSITY, layers:{}, mass:0, massReq:0};
+  for(const L of layerDefs){
+    const m=layerVol[L.key]*STEEL_DENSITY, mr=layerVolReq[L.key]*STEEL_DENSITY;
+    rebarEst.layers[L.key]={name:L.name, mass:m, massReq:mr,
+      avgAs: slabArea>0 ? layerVol[L.key]/slabArea*1e6 : 0};
+    rebarEst.mass+=m; rebarEst.massReq+=mr;
+  }
+  rebarEst.kgPerM3   = concVol>0 ? rebarEst.mass/concVol : 0;
+  rebarEst.kgPerM3Req= concVol>0 ? rebarEst.massReq/concVol : 0;
+  rebarEst.kgPerM2   = slabArea>0 ? rebarEst.mass/slabArea : 0;
 
   // ── Column reactions (from nodal equilibrium) ─────────────────────────────
   // Correct formula: R[col] = (K · u)[col_w] − F[col_w]
@@ -2485,8 +2750,8 @@ async function solveAsync(){
     const u_ULS_arr=u_ULS, u_SLS_arr=u_SLS;
     colReact=[];
     for(const col of columns){
-      const iC=Math.min(nx,Math.max(0,Math.round(col.x/dx)));
-      const jC=Math.min(ny,Math.max(0,Math.round(col.y/dy)));
+      const iC=Math.min(nx,Math.max(0,gIdx(gx,col.x)));
+      const jC=Math.min(ny,Math.max(0,gIdx(gy,col.y)));
       const nd=nid(iC,jC);
       const row=3*nd;  // w-DOF row index in K
 
@@ -2523,11 +2788,12 @@ async function solveAsync(){
   const F_SLS_combined=new Float64Array(ndof);
   for(let i=0;i<ndof;i++) F_SLS_combined[i]=SLS.dl*F_DL[i]+SLS.sidl*F_SIDL[i]+SLS.il*F_IL[i];
 
-  return{nx,ny,Lx,Ly,dx,dy,nn,D,Ds,nu,h,
+  return{nx,ny,Lx,Ly,dx,dy,gx,gy,nn,D,Ds,nu,h,
     w: Array.from(u_SLS.filter((_,i)=>i%3===0)),
     Mx:MX, My:MY, Mxy:MXY, Vx:VX, Vy:VY,
     WA_Mx_bot, WA_My_bot, WA_Mx_top, WA_My_top,
     As_xbot, As_ybot, As_xtop, As_ytop,
+    As_xbot_d, As_ybot_d, As_xtop_d, As_ytop_d, rcCheck, rebarEst,
     h_mm, cnom_mm, phi_mm, fck_MPa,
     Mx_sls:MX_sls, My_sls:MY_sls, Mxy_sls:MXY_sls, Vx_sls:VX_sls, Vy_sls:VY_sls,
     xC,yC,nodeX:nXe,nodeY:nYe,nBoundary,colReact,geo,columns,poly:custPoly||null,voids:custVoids||[],walls:custWalls||[],
@@ -2842,7 +3108,7 @@ function display(r){
   const maxMxy= safe(absMax(r.Mxy));
   const maxVx = safe(absMax(r.Vx));
   const maxVy = safe(absMax(r.Vy));
-  // L for L/δ ratio: diagonal bay span between columns (hypot of spx,spy) in column grid mode, plate diagonal otherwise
+  // L for L/δ ratio: diagonal of the largest bay (hypot of max spans) in column grid mode, plate diagonal otherwise
   const Lspan = (r.geo) ? r.geo.Ldiag : Math.hypot(r.Lx, r.Ly);
   const Ld    = maxW>0?(Lspan*1000/maxW).toFixed(0):'∞';
 
@@ -2860,11 +3126,18 @@ function display(r){
     document.getElementById('sv-wamyb').textContent=maxWAmyb.toFixed(2)+' kNm/m';
   }
   if(r.As_xbot){
-    const maxAsxb=safe(absMax(r.As_xbot));
-    const maxAsyb=safe(absMax(r.As_ybot));
+    const maxAsxb=safe(absMax(r.As_xbot_d||r.As_xbot));
+    const maxAsyb=safe(absMax(r.As_ybot_d||r.As_ybot));
     document.getElementById('sv-asxb').textContent=maxAsxb.toFixed(0)+' mm²/m';
     document.getElementById('sv-asyb').textContent=maxAsyb.toFixed(0)+' mm²/m';
   }
+  if(r.rcCheck){
+    const L=r.rcCheck.limits;
+    const bad=r.rcCheck.nKexceed>0||r.rcCheck.nAsMaxExceed>0;
+    document.getElementById('sv-asmin').innerHTML=L.AsMin.toFixed(0)+' mm²/m'+
+      (bad?' <span class="lc-badge uls">⚠ CHECK</span>':'');
+  }
+  if(r.rebarEst) renderRebarSummary(r);
   if(r.swVal!==undefined){
     const svDLEl=document.getElementById('sv-dl-breakdown');
     if(svDLEl) svDLEl.textContent=`${(r.swVal??0).toFixed(2)} kN/m²`;
@@ -2881,7 +3154,7 @@ function display(r){
     document.getElementById('sv-cr').innerHTML=totalR_uls.toFixed(1)+' kN <span class="lc-badge uls">ULS</span>';
     const tb=document.getElementById('reactBody'); tb.innerHTML='';
     r.colReact.forEach((col,idx)=>{
-      const ref=String.fromCharCode(65+col.cj)+(col.ci+1);
+      const ref=gridRef(col.ci,col.cj);
       const pct_uls=r.totalLoad_ULS>0?(Math.abs(col.R_uls)/r.totalLoad_ULS*100).toFixed(1):'—';
       const tr=document.createElement('tr');
       tr.innerHTML=`<td>${idx+1}</td><td>${ref}</td><td>${col.x.toFixed(2)}</td>
@@ -2927,6 +3200,93 @@ function display(r){
   redrawAll();
 }
 
+// Reinforcement check & quantity estimate panel (REBAR tab) + stat bar value
+function renderRebarSummary(r){
+  const est=r.rebarEst, rc=r.rcCheck;
+  if(!est||!rc) return;
+  const allowEl=document.getElementById('rebarAllow');
+  const allow=Math.max(0,+(allowEl&&allowEl.value)||0)/100;
+  const f=1+allow;
+  const L=rc.limits;
+  const n0=x=>(+x).toFixed(0), n1=x=>(+x).toFixed(1), n2=x=>(+x).toFixed(2);
+  const pct=(a,b)=>b>0?(a/b*100).toFixed(0)+'%':'—';
+  const ok='<span style="color:#1a8a3a;font-weight:700">OK</span>';
+  const ng=t=>`<span style="color:var(--rubine);font-weight:700">${t}</span>`;
+
+  document.getElementById('sv-rebar').innerHTML=
+    `${n0(est.kgPerM3*f)} kg/m³ <span style="font-size:0.6rem;color:var(--text-dim)">(${n0(est.mass*f)} kg)</span>`;
+
+  const lay=['xbot','ybot','xtop','ytop'];
+  const rowsCheck=rc.layers.map(l=>`<tr>
+      <td>${l.name}</td>
+      <td>${n0(l.maxReq)}</td>
+      <td>${n0(l.maxDes)}</td>
+      <td>${pct(l.nMinGov,l.nTension)}</td>
+      <td>${l.nAsMaxExceed?ng('FAIL ('+l.nAsMaxExceed+' nodes)'):ok}</td>
+      <td>${l.nKexceed?ng('K &gt; K′ ('+l.nKexceed+' nodes)'):ok}</td></tr>`).join('');
+  const rowsEst=lay.map(k=>{
+    const e=est.layers[k];
+    return `<tr><td>${e.name}</td><td>${n0(e.avgAs)}</td><td>${n0(e.massReq)}</td>
+      <td>${n0(e.mass)}</td><td>${n0(e.mass*f)}</td>
+      <td>${n2(est.slabArea>0?e.mass*f/est.slabArea:0)}</td>
+      <td>${n1(est.concVol>0?e.mass*f/est.concVol:0)}</td></tr>`;
+  }).join('');
+  const warnTxt=[];
+  if(rc.nKexceed) warnTxt.push(`K = M/(b·d²·f<sub>ck</sub>) exceeds K′ = ${EC2_K_LIM} at ${rc.nKexceed} node-layer(s): compression reinforcement would be required — increase slab depth.`);
+  if(rc.nAsMaxExceed) warnTxt.push(`A<sub>s,req</sub> exceeds A<sub>s,max</sub> = 0.04·A<sub>c</sub> at ${rc.nAsMaxExceed} node-layer(s) (§9.2.1.1(3)).`);
+  if(L.AsSpacing>L.AsMin) warnTxt.push(`With φ${r.phi_mm} bars at the maximum principal spacing s<sub>max</sub> = ${L.sMaxMain} mm (§9.3.1.1(3)), the least steel that can be detailed is ${n0(L.AsSpacing)} mm²/m (&gt; A<sub>s,min</sub>). The estimate uses the theoretical A<sub>s</sub>; consider a smaller bar.`);
+
+  const th='style="background:var(--purple)"';
+  const box=document.getElementById('rebarSummary');
+  box.innerHTML=`
+    <h3 style="font-size:0.8rem;color:var(--purple);margin:0 0 6px;">Minimum reinforcement — BS EN 1992-1-1</h3>
+    <table style="margin-bottom:6px">
+      <thead><tr><th ${th}>Parameter</th><th ${th}>Value</th><th ${th}>Reference</th></tr></thead>
+      <tbody>
+        <tr><td>Effective depth d = h − c<sub>nom</sub> − φ/2</td><td>${n1(L.d)} mm</td><td>—</td></tr>
+        <tr><td>f<sub>ctm</sub> (f<sub>ck</sub> = ${r.fck_MPa} MPa)</td><td>${n2(L.fctm)} MPa</td><td>Table 3.1</td></tr>
+        <tr><td>0.26·f<sub>ctm</sub>/f<sub>yk</sub>·b·d</td><td>${n0(L.AsMin1)} mm²/m</td><td>Eq. 9.1N</td></tr>
+        <tr><td>0.0013·b·d</td><td>${n0(L.AsMin2)} mm²/m</td><td>Eq. 9.1N</td></tr>
+        <tr><td><strong>A<sub>s,min</sub></strong> (governed by ${L.minGov})</td><td><strong>${n0(L.AsMin)} mm²/m</strong></td><td>§9.3.1.1(1) → §9.2.1.1(1)</td></tr>
+        <tr><td>A<sub>s,max</sub> = 0.04·A<sub>c</sub></td><td>${n0(L.AsMax)} mm²/m</td><td>§9.2.1.1(3)</td></tr>
+        <tr><td>s<sub>max</sub> principal / secondary</td><td>${L.sMaxMain} / ${L.sMaxSec} mm</td><td>§9.3.1.1(3)</td></tr>
+      </tbody>
+    </table>
+    <table style="margin-bottom:6px">
+      <thead><tr><th ${th}>Layer</th><th ${th}>Max A<sub>s,req</sub> (mm²/m)</th><th ${th}>Max design A<sub>s</sub> (mm²/m)</th>
+        <th ${th}>Nodes where A<sub>s,min</sub> governs</th><th ${th}>A<sub>s,max</sub> check</th><th ${th}>K ≤ K′</th></tr></thead>
+      <tbody>${rowsCheck}</tbody>
+    </table>
+    <div style="font-size:0.62rem;color:var(--text-dim);line-height:1.7;margin-bottom:14px;">
+      Design A<sub>s</sub> = max(A<sub>s,req</sub>, A<sub>s,min</sub>). Bottom steel is provided at no less than A<sub>s,min</sub>
+      across the whole slab; top steel wherever a hogging (Wood-Armer) demand exists.
+      ${warnTxt.length?'<div style="color:var(--rubine);margin-top:4px;">⚠ '+warnTxt.join('<br>⚠ ')+'</div>':''}
+    </div>
+
+    <h3 style="font-size:0.8rem;color:var(--purple);margin:0 0 6px;">Reinforcement estimate — whole slab</h3>
+    <table style="margin-bottom:6px">
+      <thead><tr><th ${th}>Layer</th><th ${th}>Mean A<sub>s</sub> (mm²/m)</th><th ${th}>From A<sub>s,req</sub> only (kg)</th>
+        <th ${th}>Incl. A<sub>s,min</sub> (kg)</th><th ${th}>Incl. allowance (kg)</th><th ${th}>kg/m²</th><th ${th}>kg/m³</th></tr></thead>
+      <tbody>${rowsEst}</tbody>
+      <tfoot><tr style="font-weight:700">
+        <td>TOTAL</td><td>—</td><td>${n0(est.massReq)}</td><td>${n0(est.mass)}</td><td>${n0(est.mass*f)}</td>
+        <td>${n2(est.kgPerM2*f)}</td><td style="color:var(--purple)">${n1(est.kgPerM3*f)}</td></tr></tfoot>
+    </table>
+    <div style="font-size:1rem;color:var(--purple);font-weight:700;margin:10px 0 4px;">
+      ≈ ${n0(est.kgPerM3*f)} kg/m³ &nbsp;<span style="font-size:0.7rem;font-weight:400;color:var(--text-dim)">
+      (${n0(est.mass*f)} kg steel in ${n2(est.concVol)} m³ concrete)</span>
+    </div>
+    <div style="font-size:0.62rem;color:var(--text-dim);line-height:1.7;">
+      Slab plan area ${n2(est.slabArea)} m² · h = ${est.h_mm} mm · concrete volume ${n2(est.concVol)} m³ ·
+      steel density ${est.density} kg/m³ · allowance ${(allow*100).toFixed(0)}%.<br>
+      Theoretical quantity: design A<sub>s</sub> (mm²/m) integrated over the slab area for each of the four layers.
+      From A<sub>s,req</sub> only = ${n0(est.kgPerM3Req)} kg/m³. Excludes punching shear links, edge/trimmer bars and
+      curtailment/anchorage lengths unless covered by the allowance.
+    </div>`;
+  box.style.display='block';
+  document.getElementById('sm-rebar').style.display='none';
+}
+
 function redrawAll(){
   if(!gRes) return;
   drawMesh(gRes);
@@ -2950,10 +3310,13 @@ function redrawAll(){
   }
   if(gRes.As_xbot){
     const dTag=gRes.h_mm?` (h=${gRes.h_mm}mm, c=${gRes.cnom_mm}mm, φ${gRes.phi_mm})`:'';
-    draw('cvAsxb',Array.from(gRes.As_xbot),`As,x Bottom (Sagging)${dTag} — mm²/m`);
-    draw('cvAsyb',Array.from(gRes.As_ybot),`As,y Bottom (Sagging)${dTag} — mm²/m`);
-    draw('cvAsxt',Array.from(gRes.As_xtop),`As,x Top (Hogging)${dTag} — mm²/m`);
-    draw('cvAsyt',Array.from(gRes.As_ytop),`As,y Top (Hogging)${dTag} — mm²/m`);
+    // Plot design As = max(As,req, As,min) in tension zones when available
+    const des=!!gRes.As_xbot_d;
+    const mTag=des?` · incl. As,min=${gRes.rcCheck.limits.AsMin.toFixed(0)}`:'';
+    draw('cvAsxb',Array.from(des?gRes.As_xbot_d:gRes.As_xbot),`As,x Bottom (Sagging)${dTag}${mTag} — mm²/m`);
+    draw('cvAsyb',Array.from(des?gRes.As_ybot_d:gRes.As_ybot),`As,y Bottom (Sagging)${dTag}${mTag} — mm²/m`);
+    draw('cvAsxt',Array.from(des?gRes.As_xtop_d:gRes.As_xtop),`As,x Top (Hogging)${dTag}${mTag} — mm²/m`);
+    draw('cvAsyt',Array.from(des?gRes.As_ytop_d:gRes.As_ytop),`As,y Top (Hogging)${dTag}${mTag} — mm²/m`);
   }
   if(gLTRes && gLTRes.w_lt){
     draw('cvLTDefl', gLTRes.w_lt.map(w=>-w*1000),
@@ -3023,16 +3386,16 @@ function drawMesh(r){
 
   // Elements fill — use projected node coordinates for boundary-conforming quads
   const _mnid=(i,j)=>j*(r.nx+1)+i;
-  const _nX=r.nodeX||(()=>{const a=new Float64Array((r.nx+1)*(r.ny+1));for(let j=0;j<=r.ny;j++)for(let i=0;i<=r.nx;i++)a[_mnid(i,j)]=i*r.dx;return a;})();
-  const _nY=r.nodeY||(()=>{const a=new Float64Array((r.nx+1)*(r.ny+1));for(let j=0;j<=r.ny;j++)for(let i=0;i<=r.nx;i++)a[_mnid(i,j)]=j*r.dy;return a;})();
+  const _nX=r.nodeX||(()=>{const a=new Float64Array((r.nx+1)*(r.ny+1));for(let j=0;j<=r.ny;j++)for(let i=0;i<=r.nx;i++)a[_mnid(i,j)]=r.gx[i];return a;})();
+  const _nY=r.nodeY||(()=>{const a=new Float64Array((r.nx+1)*(r.ny+1));for(let j=0;j<=r.ny;j++)for(let i=0;i<=r.nx;i++)a[_mnid(i,j)]=r.gy[j];return a;})();
   const _etol=Math.min(r.dx,r.dy)*0.08;
   function _ecIn(wx,wy,poly){return custPointInPoly(wx,wy,poly)||custDistToPoly(wx,wy,poly)<=_etol;}
   function _elOk(ex,ey){
     if(!r.poly) return true;
     const ci=[ex,ex+1,ex+1,ex],cj=[ey,ey,ey+1,ey+1];
-    let ins=0; for(let k=0;k<4;k++) if(_ecIn(ci[k]*r.dx,cj[k]*r.dy,r.poly)) ins++;
+    let ins=0; for(let k=0;k<4;k++) if(_ecIn(r.gx[ci[k]],r.gy[cj[k]],r.poly)) ins++;
     if(ins<2) return false;
-    if(r.voids) for(const v of r.voids){if(!v.closed)continue;let iv=0;for(let k=0;k<4;k++)if(_ecIn(ci[k]*r.dx,cj[k]*r.dy,v.poly))iv++;if(iv>=2)return false;}
+    if(r.voids) for(const v of r.voids){if(!v.closed)continue;let iv=0;for(let k=0;k<4;k++)if(_ecIn(r.gx[ci[k]],r.gy[cj[k]],v.poly))iv++;if(iv>=2)return false;}
     return true;
   }
   for(let ey=0;ey<r.ny;ey++) for(let ex=0;ex<r.nx;ex++){
@@ -3077,15 +3440,15 @@ function drawMesh(r){
   // Column footprints and bay grid
   if(r.geo){
     const c2=r.geo;
-    // Bay grid lines (only for regular grids)
+    // Bay grid lines (column-grid mode — regular or irregular spacings)
     if(c2.nbx && c2.nby){
       ctx.strokeStyle='rgba(85,73,150,0.2)'; ctx.lineWidth=0.8; ctx.setLineDash([4,4]);
       for(let i=0;i<=c2.nbx;i++){
-        const{sx,sy:sy0}=ws(i*c2.spx,0);const{sy:sy1}=ws(i*c2.spx,r.Ly);
+        const{sx,sy:sy0}=ws(c2.xs[i],0);const{sy:sy1}=ws(c2.xs[i],r.Ly);
         ctx.beginPath();ctx.moveTo(sx,sy0);ctx.lineTo(sx,sy1);ctx.stroke();
       }
       for(let j=0;j<=c2.nby;j++){
-        const{sx:sx0,sy}=ws(0,j*c2.spy);const{sx:sx1}=ws(r.Lx,j*c2.spy);
+        const{sx:sx0,sy}=ws(0,c2.ys[j]);const{sx:sx1}=ws(r.Lx,c2.ys[j]);
         ctx.beginPath();ctx.moveTo(sx0,sy);ctx.lineTo(sx1,sy);ctx.stroke();
       }
       ctx.setLineDash([]);
@@ -3099,7 +3462,7 @@ function drawMesh(r){
       ctx.strokeStyle='rgba(85,73,150,0.9)'; ctx.lineWidth=1.5;
       ctx.strokeRect(cx-cW/2,cy-cH/2,cW,cH);
       const ref=(col.ci!=null&&col.cj!=null)
-        ? String.fromCharCode(65+col.cj)+(col.ci+1)
+        ? gridRef(col.ci,col.cj)
         : String(r.columns.indexOf(col)+1);
       ctx.fillStyle='rgba(85,73,150,0.95)'; ctx.font='bold 8px Space Mono';
       ctx.textAlign='center'; ctx.fillText(ref,cx,cy+3);
@@ -3123,15 +3486,15 @@ function drawMesh(r){
 
     // Span dimension labels
     ctx.fillStyle='rgba(85,73,150,0.7)'; ctx.font='8px Space Mono'; ctx.textAlign='center';
-    for(let i=0;i<c2.nbx;i++){
-      const{sx:sx0}=ws(i*c2.spx,0);const{sx:sx1}=ws((i+1)*c2.spx,0);
-      ctx.fillText(c2.spx+'m',(sx0+sx1)/2,y0+ph+14);
+    for(let i=0;i<(c2.nbx||0);i++){
+      const{sx:sx0}=ws(c2.xs[i],0);const{sx:sx1}=ws(c2.xs[i+1],0);
+      ctx.fillText(+c2.bx[i].toFixed(3)+'m',(sx0+sx1)/2,y0+ph+14);
     }
     ctx.save();
-    for(let j=0;j<c2.nby;j++){
-      const{sy:sy0}=ws(0,j*c2.spy);const{sy:sy1}=ws(0,(j+1)*c2.spy);
+    for(let j=0;j<(c2.nby||0);j++){
+      const{sy:sy0}=ws(0,c2.ys[j]);const{sy:sy1}=ws(0,c2.ys[j+1]);
       ctx.save(); ctx.translate(x0-14,(sy0+sy1)/2); ctx.rotate(-Math.PI/2);
-      ctx.fillText(c2.spy+'m',0,0); ctx.restore();
+      ctx.fillText(+c2.by[j].toFixed(3)+'m',0,0); ctx.restore();
     }
   } else {
     // Edge BC symbols
@@ -3157,8 +3520,8 @@ function drawMesh(r){
 
   // Nodes (small dots, clipped to polygon) — use projected positions
   for(let j=0;j<=r.ny;j++) for(let i=0;i<=r.nx;i++){
-    if(r.poly && !custPointInPoly(i*r.dx,j*r.dy,r.poly)) continue;
-    if(r.voids&&r.voids.some(v=>v.closed&&custPointInPoly(i*r.dx,j*r.dy,v.poly))) continue;
+    if(r.poly && !custPointInPoly(r.gx[i],r.gy[j],r.poly)) continue;
+    if(r.voids&&r.voids.some(v=>v.closed&&custPointInPoly(r.gx[i],r.gy[j],v.poly))) continue;
     const nd_=_mnid(i,j);
     const{sx,sy}=ws(_nX[nd_],_nY[nd_]);
     ctx.beginPath(); ctx.arc(sx,sy,1.6,0,Math.PI*2);
@@ -3379,16 +3742,16 @@ function draw3d(cid, r, vals, title, isDefl){
   const vrange=vmax-vmin||1;
   const nid=(i,j)=>j*(r.nx+1)+i;
   // Use projected node coords if available, else regular grid
-  const _3nX=r.nodeX||(()=>{const a=new Float64Array(r.nn);for(let j=0;j<=r.ny;j++)for(let i=0;i<=r.nx;i++)a[nid(i,j)]=i*r.dx;return a;})();
-  const _3nY=r.nodeY||(()=>{const a=new Float64Array(r.nn);for(let j=0;j<=r.ny;j++)for(let i=0;i<=r.nx;i++)a[nid(i,j)]=j*r.dy;return a;})();
+  const _3nX=r.nodeX||(()=>{const a=new Float64Array(r.nn);for(let j=0;j<=r.ny;j++)for(let i=0;i<=r.nx;i++)a[nid(i,j)]=r.gx[i];return a;})();
+  const _3nY=r.nodeY||(()=>{const a=new Float64Array(r.nn);for(let j=0;j<=r.ny;j++)for(let i=0;i<=r.nx;i++)a[nid(i,j)]=r.gy[j];return a;})();
   const _3tol=Math.min(r.dx,r.dy)*0.08;
   function _3cIn(wx,wy,poly){return custPointInPoly(wx,wy,poly)||custDistToPoly(wx,wy,poly)<=_3tol;}
   function _3elOk(ex,ey){
     if(!r.poly) return true;
     const ci=[ex,ex+1,ex+1,ex],cj=[ey,ey,ey+1,ey+1];
-    let ins=0; for(let k=0;k<4;k++) if(_3cIn(ci[k]*r.dx,cj[k]*r.dy,r.poly)) ins++;
+    let ins=0; for(let k=0;k<4;k++) if(_3cIn(r.gx[ci[k]],r.gy[cj[k]],r.poly)) ins++;
     if(ins<2) return false;
-    if(r.voids) for(const v of r.voids){if(!v.closed)continue;let iv=0;for(let k=0;k<4;k++)if(_3cIn(ci[k]*r.dx,cj[k]*r.dy,v.poly))iv++;if(iv>=2)return false;}
+    if(r.voids) for(const v of r.voids){if(!v.closed)continue;let iv=0;for(let k=0;k<4;k++)if(_3cIn(r.gx[ci[k]],r.gy[cj[k]],v.poly))iv++;if(iv>=2)return false;}
     return true;
   }
 
@@ -3458,9 +3821,9 @@ function draw3d(cid, r, vals, title, isDefl){
   function _3elType(ex,ey){
     if(!r.poly) return 'interior';
     const ci=[ex,ex+1,ex+1,ex],cj=[ey,ey,ey+1,ey+1];
-    let ins=0; for(let k=0;k<4;k++) if(_3cIn2(ci[k]*r.dx,cj[k]*r.dy,r.poly)) ins++;
+    let ins=0; for(let k=0;k<4;k++) if(_3cIn2(r.gx[ci[k]],r.gy[cj[k]],r.poly)) ins++;
     if(ins===0) return 'outside';
-    if(r.voids) for(const v of r.voids){if(!v.closed)continue;let iv=0;for(let k=0;k<4;k++)if(_3cIn2(ci[k]*r.dx,cj[k]*r.dy,v.poly))iv++;if(iv>=3)return 'outside';}
+    if(r.voids) for(const v of r.voids){if(!v.closed)continue;let iv=0;for(let k=0;k<4;k++)if(_3cIn2(r.gx[ci[k]],r.gy[cj[k]],v.poly))iv++;if(iv>=3)return 'outside';}
     if(ins===4) return 'interior';
     if(ins>=2) return 'boundary';
     return 'outside';
@@ -3615,10 +3978,8 @@ function draw3d(cid, r, vals, title, isDefl){
   // masking path tracks the actual rendered boundary without staircase gaps.
   function _interpZ(wx,wy){
     if(!isDeflDeformed) return 0;
-    const ex_=Math.min(r.nx-1,Math.max(0,Math.floor(wx/r.dx)));
-    const ey_=Math.min(r.ny-1,Math.max(0,Math.floor(wy/r.dy)));
-    const lx_=Math.min(1,Math.max(0,(wx-ex_*r.dx)/r.dx));
-    const ly_=Math.min(1,Math.max(0,(wy-ey_*r.dy)/r.dy));
+    const cx_=gCell(r.gx,wx), cy_=gCell(r.gy,wy);
+    const ex_=cx_.e, ey_=cy_.e, lx_=cx_.t, ly_=cy_.t;
     const n00=nid(ex_,ey_),n10=nid(ex_+1,ey_),n11=nid(ex_+1,ey_+1),n01=nid(ex_,ey_+1);
     return(1-lx_)*(1-ly_)*Z[n00]+lx_*(1-ly_)*Z[n10]+lx_*ly_*Z[n11]+(1-lx_)*ly_*Z[n01];
   }
@@ -3757,6 +4118,10 @@ function contour(cid,r,vals,title){
   const scaleX=r.Lx/(imgW-1||1);
   const scaleY=r.Ly/(imgH-1||1);
 
+  // Pre-compute cell lookups per pixel column/row (grid may be non-uniform)
+  const cellX=new Array(imgW), cellY=new Array(imgH);
+  for(let px=0;px<imgW;px++) cellX[px]=gCell(r.gx, px*scaleX);
+  for(let py=0;py<imgH;py++) cellY[py]=gCell(r.gy, (imgH-1-py)*scaleY);
   for(let py=0;py<imgH;py++){
     for(let px=0;px<imgW;px++){
       const wx = px * scaleX;
@@ -3767,10 +4132,8 @@ function contour(cid,r,vals,title){
         pix[idx]=244; pix[idx+1]=244; pix[idx+2]=244; pix[idx+3]=255;
         continue;
       }
-      const ex=Math.min(r.nx-1, Math.max(0, Math.floor(wx/r.dx)));
-      const ey=Math.min(r.ny-1, Math.max(0, Math.floor(wy/r.dy)));
-      const lx=Math.min(1, Math.max(0, (wx-ex*r.dx)/r.dx));
-      const ly=Math.min(1, Math.max(0, (wy-ey*r.dy)/r.dy));
+      const ex=cellX[px].e, lx=cellX[px].t;
+      const ey=cellY[py].e, ly=cellY[py].t;
       const v00=vals[nid(ex,   ey  )];
       const v10=vals[nid(ex+1, ey  )];
       const v11=vals[nid(ex+1, ey+1)];
@@ -3803,16 +4166,16 @@ function contour(cid,r,vals,title){
 
   // ── Mesh element boundary overlay (very faint) — use projected node coords ──
   const _cnid=(i,j)=>j*(r.nx+1)+i;
-  const _cnX=r.nodeX||(()=>{const a=new Float64Array(r.nn);for(let j=0;j<=r.ny;j++)for(let i=0;i<=r.nx;i++)a[_cnid(i,j)]=i*r.dx;return a;})();
-  const _cnY=r.nodeY||(()=>{const a=new Float64Array(r.nn);for(let j=0;j<=r.ny;j++)for(let i=0;i<=r.nx;i++)a[_cnid(i,j)]=j*r.dy;return a;})();
+  const _cnX=r.nodeX||(()=>{const a=new Float64Array(r.nn);for(let j=0;j<=r.ny;j++)for(let i=0;i<=r.nx;i++)a[_cnid(i,j)]=r.gx[i];return a;})();
+  const _cnY=r.nodeY||(()=>{const a=new Float64Array(r.nn);for(let j=0;j<=r.ny;j++)for(let i=0;i<=r.nx;i++)a[_cnid(i,j)]=r.gy[j];return a;})();
   const _ctol=Math.min(r.dx,r.dy)*0.08;
   function _ccIn(wx,wy,poly){return custPointInPoly(wx,wy,poly)||custDistToPoly(wx,wy,poly)<=_ctol;}
   function _celOk(ex,ey){
     if(!r.poly) return true;
     const ci=[ex,ex+1,ex+1,ex],cj=[ey,ey,ey+1,ey+1];
-    let ins=0; for(let k=0;k<4;k++) if(_ccIn(ci[k]*r.dx,cj[k]*r.dy,r.poly)) ins++;
+    let ins=0; for(let k=0;k<4;k++) if(_ccIn(r.gx[ci[k]],r.gy[cj[k]],r.poly)) ins++;
     if(ins<2) return false;
-    if(r.voids) for(const v of r.voids){if(!v.closed)continue;let iv=0;for(let k=0;k<4;k++)if(_ccIn(ci[k]*r.dx,cj[k]*r.dy,v.poly))iv++;if(iv>=2)return false;}
+    if(r.voids) for(const v of r.voids){if(!v.closed)continue;let iv=0;for(let k=0;k<4;k++)if(_ccIn(r.gx[ci[k]],r.gy[cj[k]],v.poly))iv++;if(iv>=2)return false;}
     return true;
   }
   ctx.strokeStyle='rgba(85,73,150,0.10)'; ctx.lineWidth=0.4;
@@ -3837,11 +4200,11 @@ function contour(cid,r,vals,title){
     if(r.geo.nbx && r.geo.nby){
       ctx.strokeStyle='rgba(85,73,150,0.15)'; ctx.lineWidth=0.8; ctx.setLineDash([4,5]);
       for(let i=0;i<=r.geo.nbx;i++){
-        const{sx,sy:s0}=ws(i*r.geo.spx,0);const{sy:s1}=ws(i*r.geo.spx,r.Ly);
+        const{sx,sy:s0}=ws(r.geo.xs[i],0);const{sy:s1}=ws(r.geo.xs[i],r.Ly);
         ctx.beginPath();ctx.moveTo(sx,s0);ctx.lineTo(sx,s1);ctx.stroke();
       }
       for(let j=0;j<=r.geo.nby;j++){
-        const{sx:s0,sy}=ws(0,j*r.geo.spy);const{sx:s1}=ws(r.Lx,j*r.geo.spy);
+        const{sx:s0,sy}=ws(0,r.geo.ys[j]);const{sx:s1}=ws(r.Lx,r.geo.ys[j]);
         ctx.beginPath();ctx.moveTo(s0,sy);ctx.lineTo(s1,sy);ctx.stroke();
       }
       ctx.setLineDash([]);
@@ -4055,6 +4418,7 @@ async function computeLongTermDefl(r){
   const nx=r.nx, ny=r.ny, nn=r.nn;
   const nid=(i,j)=>j*(nx+1)+i;
   const dx=r.dx, dy=r.dy;
+  const gx=r.gx, gy=r.gy;   // grid-line coordinates (non-uniform for irregular column grids)
 
   // ── Per-node signed SLS moment (sign determines sag vs hog) ─────────
   // Use Mx_sls as representative; positive = sagging (tension at bottom)
@@ -4079,10 +4443,10 @@ async function computeLongTermDefl(r){
     if(r.poly){
       const _ci=[ex,ex+1,ex+1,ex],_cj=[ey,ey,ey+1,ey+1];
       const _tl=Math.min(dx,dy)*0.08;
-      let _ins=0; for(let _k=0;_k<4;_k++){const _wx=_ci[_k]*dx,_wy=_cj[_k]*dy;if(custPointInPoly(_wx,_wy,r.poly)||custDistToPoly(_wx,_wy,r.poly)<=_tl)_ins++;}
+      let _ins=0; for(let _k=0;_k<4;_k++){const _wx=gx[_ci[_k]],_wy=gy[_cj[_k]];if(custPointInPoly(_wx,_wy,r.poly)||custDistToPoly(_wx,_wy,r.poly)<=_tl)_ins++;}
       if(_ins<2) continue;
     }
-    if(r.voids&&r.voids.some(v=>v.closed&&custPointInPoly((ex+0.5)*dx,(ey+0.5)*dy,v.poly))) continue;
+    if(r.voids&&r.voids.some(v=>v.closed&&custPointInPoly(0.5*(gx[ex]+gx[ex+1]),0.5*(gy[ey]+gy[ey+1]),v.poly))) continue;
     const ns=[nid(ex,ey),nid(ex+1,ey),nid(ex+1,ey+1),nid(ex,ey+1)];
 
     // Signed element moment (average of nodes)
@@ -4145,15 +4509,15 @@ async function computeLongTermDefl(r){
     if(r.poly){
       const _ci=[ex,ex+1,ex+1,ex],_cj=[ey,ey,ey+1,ey+1];
       const _tl=Math.min(dx,dy)*0.08;
-      let _ins=0; for(let _k=0;_k<4;_k++){const _wx=_ci[_k]*dx,_wy=_cj[_k]*dy;if(custPointInPoly(_wx,_wy,r.poly)||custDistToPoly(_wx,_wy,r.poly)<=_tl)_ins++;}
+      let _ins=0; for(let _k=0;_k<4;_k++){const _wx=gx[_ci[_k]],_wy=gy[_cj[_k]];if(custPointInPoly(_wx,_wy,r.poly)||custDistToPoly(_wx,_wy,r.poly)<=_tl)_ins++;}
       if(_ins<2){ ltElDone++; continue; }
     }
-    if(r.voids&&r.voids.some(v=>v.closed&&custPointInPoly((ex+0.5)*dx,(ey+0.5)*dy,v.poly))){ ltElDone++; continue; }
+    if(r.voids&&r.voids.some(v=>v.closed&&custPointInPoly(0.5*(gx[ex]+gx[ex+1]),0.5*(gy[ey]+gy[ey+1]),v.poly))){ ltElDone++; continue; }
     const ns=[nid(ex,ey),nid(ex+1,ey),nid(ex+1,ey+1),nid(ex,ey+1)];
     const dofs=[]; for(const nd of ns) dofs.push(3*nd,3*nd+1,3*nd+2);
     const ke=new Float64Array(144);
-    const xs=[ex*dx,(ex+1)*dx,(ex+1)*dx,ex*dx];
-    const ys=[ey*dy,ey*dy,(ey+1)*dy,(ey+1)*dy];
+    const xs=[gx[ex],gx[ex+1],gx[ex+1],gx[ex]];
+    const ys=[gy[ey],gy[ey],gy[ey+1],gy[ey+1]];
     // D_e is the effective plate bending rigidity for this element (kNm)
     // Use interpolated ν for off-diagonal Db terms: ν_eff = (1-ζ)*ν_u + ζ*ν_cr
     const D_e=D_el[ey*nx+ex];
@@ -4199,8 +4563,8 @@ async function computeLongTermDefl(r){
     applyEdge(fixed_lt,em[gBC]||em['ssss'],nx,ny,nid);
   } else if(gMode==='custom'){
     if(r.columns) for(const col of r.columns){
-      const iC=Math.max(0,Math.min(nx,Math.round(col.x/dx)));
-      const jC=Math.max(0,Math.min(ny,Math.round(col.y/dy)));
+      const iC=Math.max(0,Math.min(nx,gIdx(gx,col.x)));
+      const jC=Math.max(0,Math.min(ny,gIdx(gy,col.y)));
       const nd=nid(iC,jC);
       fixed_lt.add(3*nd); fixed_lt.add(3*nd+1); fixed_lt.add(3*nd+2);
     }
@@ -4212,8 +4576,8 @@ async function computeLongTermDefl(r){
         const wt_=si/nSampW;
         const wxi=wall.x0+(wall.x1-wall.x0)*wt_;
         const wyi=wall.y0+(wall.y1-wall.y0)*wt_;
-        const iW=Math.max(0,Math.min(nx,Math.round(wxi/dx)));
-        const jW=Math.max(0,Math.min(ny,Math.round(wyi/dy)));
+        const iW=Math.max(0,Math.min(nx,gIdx(gx,wxi)));
+        const jW=Math.max(0,Math.min(ny,gIdx(gy,wyi)));
         fixed_lt.add(3*nid(iW,jW));
       }
     }
@@ -4222,8 +4586,8 @@ async function computeLongTermDefl(r){
     if(et==='fixed') applyEdge(fixed_lt,['C','C','C','C'],nx,ny,nid);
     else if(et==='ss') applyEdge(fixed_lt,['SS','SS','SS','SS'],nx,ny,nid);
     if(r.columns) for(const col of r.columns){
-      const iC=Math.min(nx,Math.max(0,Math.round(col.x/dx)));
-      const jC=Math.min(ny,Math.max(0,Math.round(col.y/dy)));
+      const iC=Math.min(nx,Math.max(0,gIdx(gx,col.x)));
+      const jC=Math.min(ny,Math.max(0,gIdx(gy,col.y)));
       const nd=nid(iC,jC);
       fixed_lt.add(3*nd); fixed_lt.add(3*nd+1); fixed_lt.add(3*nd+2);
     }
@@ -4245,31 +4609,31 @@ async function computeLongTermDefl(r){
           for(let si=0;si<=nSamp;si++){
             const t=si/nSamp;
             const px=p0.x+(p1.x-p0.x)*t, py=p0.y+(p1.y-p0.y)*t;
-            const ic=Math.max(0,Math.min(nx,Math.round(px/dx)));
-            const jc=Math.max(0,Math.min(ny,Math.round(py/dy)));
+            const ic=Math.max(0,Math.min(nx,gIdx(gx,px)));
+            const jc=Math.max(0,Math.min(ny,gIdx(gy,py)));
             const tw=(si===0||si===nSamp)?0.5:1;
             F[3*nid(ic,jc)]+=q*(eLen/nSamp)*tw;
           }
         }
       } else {
-        for(let ex=0;ex<nx;ex++){F[3*nid(ex,0)]+=q*dx/2;F[3*nid(ex+1,0)]+=q*dx/2;}
-        for(let ex=0;ex<nx;ex++){F[3*nid(ex,ny)]+=q*dx/2;F[3*nid(ex+1,ny)]+=q*dx/2;}
-        for(let ey=0;ey<ny;ey++){F[3*nid(0,ey)]+=q*dy/2;F[3*nid(0,ey+1)]+=q*dy/2;}
-        for(let ey=0;ey<ny;ey++){F[3*nid(nx,ey)]+=q*dy/2;F[3*nid(nx,ey+1)]+=q*dy/2;}
+        for(let ex=0;ex<nx;ex++){F[3*nid(ex,0)]+=q*(gx[ex+1]-gx[ex])/2;F[3*nid(ex+1,0)]+=q*(gx[ex+1]-gx[ex])/2;}
+        for(let ex=0;ex<nx;ex++){F[3*nid(ex,ny)]+=q*(gx[ex+1]-gx[ex])/2;F[3*nid(ex+1,ny)]+=q*(gx[ex+1]-gx[ex])/2;}
+        for(let ey=0;ey<ny;ey++){F[3*nid(0,ey)]+=q*(gy[ey+1]-gy[ey])/2;F[3*nid(0,ey+1)]+=q*(gy[ey+1]-gy[ey])/2;}
+        for(let ey=0;ey<ny;ey++){F[3*nid(nx,ey)]+=q*(gy[ey+1]-gy[ey])/2;F[3*nid(nx,ey+1)]+=q*(gy[ey+1]-gy[ey])/2;}
       }
       return F;
     }
     if(lt==='central'){
-      F[3*nid(Math.round(nx/2),Math.round(ny/2))]+=q;
+      F[3*nid(gIdx(gx,r.Lx/2),gIdx(gy,r.Ly/2))]+=q;
       return F;
     }
     for(let ey=0;ey<ny;ey++) for(let ex=0;ex<nx;ex++){
-      if(r.poly && !custPointInPoly((ex+0.5)*dx,(ey+0.5)*dy,r.poly)) continue;
-      if(r.voids&&r.voids.some(v=>v.closed&&custPointInPoly((ex+0.5)*dx,(ey+0.5)*dy,v.poly))) continue;
+      if(r.poly && !custPointInPoly(0.5*(gx[ex]+gx[ex+1]),0.5*(gy[ey]+gy[ey+1]),r.poly)) continue;
+      if(r.voids&&r.voids.some(v=>v.closed&&custPointInPoly(0.5*(gx[ex]+gx[ex+1]),0.5*(gy[ey]+gy[ey+1]),v.poly))) continue;
       const ns=[nid(ex,ey),nid(ex+1,ey),nid(ex+1,ey+1),nid(ex,ey+1)];
       const dofs2=[]; for(const nd of ns) dofs2.push(3*nd,3*nd+1,3*nd+2);
-      const xs=[ex*dx,(ex+1)*dx,(ex+1)*dx,ex*dx];
-      const ys=[ey*dy,ey*dy,(ey+1)*dy,(ey+1)*dy];
+      const xs=[gx[ex],gx[ex+1],gx[ex+1],gx[ex]];
+      const ys=[gy[ey],gy[ey],gy[ey+1],gy[ey+1]];
       for(const xi of g2b) for(const eta of g2b){
         const s=shd(xi,eta,xs,ys);
         applyLoadLC(F,dofs2,s.N,s.det,q,xs,ys,lt,lc);
@@ -4286,12 +4650,12 @@ async function computeLongTermDefl(r){
   const Ffl=new Float64Array(ndof);
   if(qFL_udl_lt){
     for(let ey=0;ey<ny;ey++) for(let ex=0;ex<nx;ex++){
-      if(r.poly && !custPointInPoly((ex+0.5)*dx,(ey+0.5)*dy,r.poly)) continue;
-      if(r.voids&&r.voids.some(v=>v.closed&&custPointInPoly((ex+0.5)*dx,(ey+0.5)*dy,v.poly))) continue;
+      if(r.poly && !custPointInPoly(0.5*(gx[ex]+gx[ex+1]),0.5*(gy[ey]+gy[ey+1]),r.poly)) continue;
+      if(r.voids&&r.voids.some(v=>v.closed&&custPointInPoly(0.5*(gx[ex]+gx[ex+1]),0.5*(gy[ey]+gy[ey+1]),v.poly))) continue;
       const ns=[nid(ex,ey),nid(ex+1,ey),nid(ex+1,ey+1),nid(ex,ey+1)];
       const dofs2=[]; for(const nd of ns) dofs2.push(3*nd,3*nd+1,3*nd+2);
-      const xs=[ex*dx,(ex+1)*dx,(ex+1)*dx,ex*dx];
-      const ys=[ey*dy,ey*dy,(ey+1)*dy,(ey+1)*dy];
+      const xs=[gx[ex],gx[ex+1],gx[ex+1],gx[ex]];
+      const ys=[gy[ey],gy[ey],gy[ey+1],gy[ey+1]];
       for(const xi of g2b) for(const eta of g2b){
         const s=shd(xi,eta,xs,ys);
         for(let k=0;k<4;k++) Ffl[dofs2[3*k]]+=s.N[k]*qFL_udl_lt*s.det;
@@ -4308,17 +4672,17 @@ async function computeLongTermDefl(r){
         for(let si=0;si<=nSamp;si++){
           const t=si/nSamp;
           const px=p0.x+(p1.x-p0.x)*t,py=p0.y+(p1.y-p0.y)*t;
-          const ic=Math.max(0,Math.min(nx,Math.round(px/dx)));
-          const jc=Math.max(0,Math.min(ny,Math.round(py/dy)));
+          const ic=Math.max(0,Math.min(nx,gIdx(gx,px)));
+          const jc=Math.max(0,Math.min(ny,gIdx(gy,py)));
           const tw=(si===0||si===nSamp)?0.5:1;
           Ffl[3*nid(ic,jc)]+=qFL_perim_lt*(eLen/nSamp)*tw;
         }
       }
     } else {
-      for(let ex=0;ex<nx;ex++){Ffl[3*nid(ex,0)]+=qFL_perim_lt*dx/2;Ffl[3*nid(ex+1,0)]+=qFL_perim_lt*dx/2;}
-      for(let ex=0;ex<nx;ex++){Ffl[3*nid(ex,ny)]+=qFL_perim_lt*dx/2;Ffl[3*nid(ex+1,ny)]+=qFL_perim_lt*dx/2;}
-      for(let ey=0;ey<ny;ey++){Ffl[3*nid(0,ey)]+=qFL_perim_lt*dy/2;Ffl[3*nid(0,ey+1)]+=qFL_perim_lt*dy/2;}
-      for(let ey=0;ey<ny;ey++){Ffl[3*nid(nx,ey)]+=qFL_perim_lt*dy/2;Ffl[3*nid(nx,ey+1)]+=qFL_perim_lt*dy/2;}
+      for(let ex=0;ex<nx;ex++){Ffl[3*nid(ex,0)]+=qFL_perim_lt*(gx[ex+1]-gx[ex])/2;Ffl[3*nid(ex+1,0)]+=qFL_perim_lt*(gx[ex+1]-gx[ex])/2;}
+      for(let ex=0;ex<nx;ex++){Ffl[3*nid(ex,ny)]+=qFL_perim_lt*(gx[ex+1]-gx[ex])/2;Ffl[3*nid(ex+1,ny)]+=qFL_perim_lt*(gx[ex+1]-gx[ex])/2;}
+      for(let ey=0;ey<ny;ey++){Ffl[3*nid(0,ey)]+=qFL_perim_lt*(gy[ey+1]-gy[ey])/2;Ffl[3*nid(0,ey+1)]+=qFL_perim_lt*(gy[ey+1]-gy[ey])/2;}
+      for(let ey=0;ey<ny;ey++){Ffl[3*nid(nx,ey)]+=qFL_perim_lt*(gy[ey+1]-gy[ey])/2;Ffl[3*nid(nx,ey+1)]+=qFL_perim_lt*(gy[ey+1]-gy[ey])/2;}
     }
   }
   // ── Quasi-permanent combination: G_k×1.0 + ψ₂×Q_k (BS EN 1990 Eq. 6.16b) ─
