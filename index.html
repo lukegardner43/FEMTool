@@ -836,9 +836,73 @@
       d = h − c<sub>nom</sub> − φ/2
     </div>
     <div class="ibox" id="rebarMinInfo" style="font-size:0.62rem;color:var(--text-dim);line-height:1.7;">—</div>
+      <!-- Base mesh (provided throughout) -->
+      <div style="font-family:Arial,sans-serif;font-weight:700;font-size:0.6rem;letter-spacing:1px;text-transform:uppercase;color:var(--text-dim);margin-top:4px;margin-bottom:4px;">Base Mesh (top &amp; bottom)</div>
+      <div style="font-size:0.58rem;color:var(--text-dim);margin-bottom:6px;line-height:1.5;">
+        Provided throughout the slab (e.g. H12@200 = 565 mm²/m). Additional bars are added in zones where A<sub>s,req</sub> or A<sub>s,min</sub> exceeds it.
+      </div>
+      <div class="row2">
+        <div class="fld">
+          <label>Bar dia. (mm)</label>
+          <select id="ltMatPhi" onchange="rebarInputsChanged()">
+            <option value="8">H8</option>
+            <option value="10">H10</option>
+            <option value="12" selected>H12</option>
+            <option value="16">H16</option>
+            <option value="20">H20</option>
+            <option value="25">H25</option>
+          </select>
+        </div>
+        <div class="fld">
+          <label>Spacing (mm)</label>
+          <input type="number" id="ltMatSpacing" value="200" step="25" min="50" max="400" oninput="rebarInputsChanged()">
+        </div>
+      </div>
+      <div style="font-size:0.62rem;color:var(--text-dim);margin-bottom:6px;">
+        Mat As = <strong id="ltMatAsVal">565</strong> mm²/m
+      </div>
+      <!-- Additional sagging bars -->
+      <div style="font-family:Arial,sans-serif;font-weight:700;font-size:0.6rem;letter-spacing:1px;text-transform:uppercase;color:var(--text-dim);margin-top:4px;margin-bottom:4px;">Deflection Bars — Sagging Zones <span style="font-size:0.55rem;font-weight:400;text-transform:none;letter-spacing:0;">(bottom only, added to mat)</span></div>
+      <div style="font-size:0.58rem;color:var(--text-dim);margin-bottom:6px;line-height:1.5;">
+        Extra bottom bars for long-term deflection, placed in sagging zones (each direction). Where strength needs more, the larger arrangement is provided.
+      </div>
+      <div class="row2">
+        <div class="fld">
+          <label>Bar dia. (mm)</label>
+          <select id="ltSagPhi" onchange="rebarInputsChanged()">
+            <option value="0" selected>None</option>
+            <option value="10">H10</option>
+            <option value="12">H12</option>
+            <option value="16">H16</option>
+            <option value="20">H20</option>
+            <option value="25">H25</option>
+          </select>
+        </div>
+        <div class="fld">
+          <label>Spacing (mm)</label>
+          <input type="number" id="ltSagSpacing" value="200" step="25" min="50" max="400" oninput="rebarInputsChanged()">
+        </div>
+      </div>
+      <div style="font-size:0.62rem;color:var(--text-dim);margin-bottom:6px;">
+        Sagging-zone bot = mesh + deflection bars = <strong id="ltMatAsValBot">565</strong> mm²/m &nbsp;·&nbsp; top = <strong id="ltMatAsValTop">565</strong> mm²/m
+      </div>
+      <div class="row2">
+        <div class="fld">
+          <label>Bar zone size (m)</label>
+          <input type="number" id="rbZone" value="1.0" step="0.25" min="0.25" max="5" oninput="rebarInputsChanged()"
+                 title="Additional bars are rationalised into zones of about this size; each zone is detailed for the worst node inside it">
+        </div>
+        <div class="fld">
+          <label>Top mesh</label>
+          <select id="rbTopMesh" onchange="rebarInputsChanged()">
+            <option value="all" selected>Throughout slab</option>
+            <option value="hog">Hogging zones only</option>
+          </select>
+        </div>
+      </div>
     <div class="fld" style="margin-top:6px;">
       <label>Rebar estimate allowance (%) <span style="font-weight:400;font-size:0.6rem;color:var(--text-dim)">— laps, links, wastage</span></label>
-      <input type="number" id="rebarAllow" value="0" step="5" min="0" max="100" oninput="if(gRes) renderRebarSummary(gRes)">
+      <input type="number" id="rebarAllow" value="0" step="5" min="0" max="100" oninput="rebarInputsChanged()">
     </div>
   </div>
 
@@ -1103,55 +1167,9 @@
           Offices / residential: 0.3 &nbsp;&middot;&nbsp; Storage: 0.8 &nbsp;&middot;&nbsp; Roof: 0.0
         </div>
       </div>
-      <!-- Basic reinforcement mat (minimum As for LT deflection) -->
-      <div style="font-family:Arial,sans-serif;font-weight:700;font-size:0.6rem;letter-spacing:1px;text-transform:uppercase;color:var(--text-dim);margin-top:4px;margin-bottom:4px;">Basic Mat (minimum As — top &amp; bottom)</div>
-      <div style="font-size:0.58rem;color:var(--text-dim);margin-bottom:6px;line-height:1.5;">
-        Floor for I<sub>cr</sub> where design As is lower (e.g. H12@200 = 565 mm²/m)
-      </div>
-      <div class="row2">
-        <div class="fld">
-          <label>Bar dia. (mm)</label>
-          <select id="ltMatPhi" onchange="ltUpdateMatAs()">
-            <option value="8">H8</option>
-            <option value="10">H10</option>
-            <option value="12" selected>H12</option>
-            <option value="16">H16</option>
-            <option value="20">H20</option>
-            <option value="25">H25</option>
-          </select>
-        </div>
-        <div class="fld">
-          <label>Spacing (mm)</label>
-          <input type="number" id="ltMatSpacing" value="200" step="25" min="50" max="400" oninput="ltUpdateMatAs()">
-        </div>
-      </div>
-      <div style="font-size:0.62rem;color:var(--text-dim);margin-bottom:6px;">
-        Mat As = <strong id="ltMatAsVal">565</strong> mm²/m
-      </div>
-      <!-- Additional sagging bars -->
-      <div style="font-family:Arial,sans-serif;font-weight:700;font-size:0.6rem;letter-spacing:1px;text-transform:uppercase;color:var(--text-dim);margin-top:4px;margin-bottom:4px;">Additional Sagging Bars <span style="font-size:0.55rem;font-weight:400;text-transform:none;letter-spacing:0;">(bottom only, added to mat)</span></div>
-      <div style="font-size:0.58rem;color:var(--text-dim);margin-bottom:6px;line-height:1.5;">
-        Extra bars in sagging zones — added on top of mat As at bottom face only.
-      </div>
-      <div class="row2">
-        <div class="fld">
-          <label>Bar dia. (mm)</label>
-          <select id="ltSagPhi" onchange="ltUpdateMatAs()">
-            <option value="0" selected>None</option>
-            <option value="10">H10</option>
-            <option value="12">H12</option>
-            <option value="16">H16</option>
-            <option value="20">H20</option>
-            <option value="25">H25</option>
-          </select>
-        </div>
-        <div class="fld">
-          <label>Spacing (mm)</label>
-          <input type="number" id="ltSagSpacing" value="200" step="25" min="50" max="400" oninput="ltUpdateMatAs()">
-        </div>
-      </div>
-      <div style="font-size:0.62rem;color:var(--text-dim);margin-bottom:6px;">
-        Total bot = mat + sag = <strong id="ltMatAsValBot">565</strong> mm²/m &nbsp;·&nbsp; top = <strong id="ltMatAsValTop">565</strong> mm²/m
+      <div style="font-size:0.58rem;color:var(--text-dim);margin:4px 0 6px;line-height:1.5;">
+        Section stiffness uses the <strong>provided</strong> reinforcement (base mesh + zoned additional bars,
+        incl. deflection bars in sagging zones) set in <em>Reinforcement Design</em>.
       </div>
       <div class="ibox" id="ltInfo" style="font-size:0.62rem;color:var(--text-dim);display:none;"></div>
       <button class="run-btn" id="ltRunBtn" onclick="runLongTerm()"
@@ -1618,6 +1636,134 @@ function calcAsreq(M_kNm_per_m, h_mm, cnom_mm, phi_mm, fck_MPa){
   // As,req (mm²/m)
   const As = M / ((fy / gammaS) * z);
   return As;  // mm²/m
+}
+
+/* ================================================================
+   PROVIDED REINFORCEMENT — practical bar layout
+   Base mesh on both faces + additional bars rationalised into zones
+   (~1 m). Each zone is detailed for the worst node inside it, so a
+   peak that needs e.g. H16@200 extra gets it across the whole zone.
+   Deflection bars (bottom) are placed in sagging zones per direction;
+   where strength needs more, the larger arrangement is provided.
+   ================================================================ */
+const ADD_BAR_SIZES=[10,12,16,20,25,32];
+function barAs(phi,s){ return Math.PI*phi*phi/4*1000/s; }   // mm²/m
+function barLbl(b){ return b?`H${b.phi}@${Math.round(b.s)}`:'—'; }
+// Smallest standard arrangement giving at least `need` mm²/m. Spacings tie in
+// with the mesh: at the mesh spacing, or half of it (bars between mesh bars).
+function pickAddBar(need, sMesh){
+  if(!(need>1e-6)) return null;
+  const sps=[sMesh, sMesh/2].filter(sp=>sp>=75);
+  if(!sps.length) sps.push(75);
+  let best=null;
+  for(const phi of ADD_BAR_SIZES) for(const sp of sps){
+    const a=barAs(phi,sp);
+    if(a+1e-9<need) continue;
+    if(!best || a<best.As-1e-9 || (Math.abs(a-best.As)<1e-9 && sp>best.s)) best={phi,s:sp,As:a};
+  }
+  if(!best){ const sp=Math.min(...sps); best={phi:32,s:sp,As:barAs(32,sp),insufficient:true}; }
+  return best;
+}
+// Zone boundaries along one axis: follow bay grid lines in column mode
+function rebarZoneEdges(r, axis, z){
+  const L=axis==='x'?r.Lx:r.Ly;
+  const lines=(r.geo&&r.geo.xs&&r.geo.ys)?(axis==='x'?r.geo.xs:r.geo.ys):[0,L];
+  const e=[lines[0]];
+  for(let b=0;b<lines.length-1;b++){
+    const a0=lines[b], a1=lines[b+1], n=Math.max(1,Math.round((a1-a0)/z));
+    for(let k=1;k<=n;k++) e.push(a0+(a1-a0)*k/n);
+  }
+  return Float64Array.from(e);
+}
+function rebarInputsChanged(){
+  ltUpdateMatAs();
+  if(gRes&&gRes.elArea) renderRebarSummary(gRes);
+}
+function computeProvidedRebar(r){
+  if(!r||!r.elArea||!r.As_xbot) return null;
+  const nx=r.nx, ny=r.ny, nid=(i,j)=>j*(nx+1)+i;
+  const g=id=>document.getElementById(id);
+  const meshPhi=+(g('ltMatPhi')||{value:12}).value||12;
+  const meshS  =+(g('ltMatSpacing')||{value:200}).value||200;
+  const sagPhi =+(g('ltSagPhi')||{value:0}).value||0;
+  const sagS   =+(g('ltSagSpacing')||{value:200}).value||200;
+  const z      =Math.max(0.25,+(g('rbZone')||{value:1}).value||1);
+  const topAll =((g('rbTopMesh')||{value:'all'}).value)!=='hog';
+  const AsMin  =r.rcCheck.limits.AsMin;
+  const mesh={phi:meshPhi,s:meshS,As:barAs(meshPhi,meshS)};
+  const sag =sagPhi>0?{phi:sagPhi,s:sagS,As:barAs(sagPhi,sagS)}:null;
+
+  const ex_=rebarZoneEdges(r,'x',z), ey_=rebarZoneEdges(r,'y',z);
+  const nzx=ex_.length-1, nzy=ey_.length-1, nz=nzx*nzy;
+  // element → zone
+  const zoneOf=new Int32Array(nx*ny).fill(-1);
+  for(let ey=0;ey<ny;ey++) for(let ex=0;ex<nx;ex++){
+    const e=ey*nx+ex; if(!(r.elArea[e]>0)) continue;
+    const zx=gCell(ex_,0.5*(r.gx[ex]+r.gx[ex+1])).e, zy=gCell(ey_,0.5*(r.gy[ey]+r.gy[ey+1])).e;
+    zoneOf[e]=zy*nzx+zx;
+  }
+  const defs=[
+    {key:'xbot',name:'Bottom X',req:r.As_xbot,M:r.Mx_sls,bottom:true},
+    {key:'ybot',name:'Bottom Y',req:r.As_ybot,M:r.My_sls,bottom:true},
+    {key:'xtop',name:'Top X',   req:r.As_xtop,bottom:false},
+    {key:'ytop',name:'Top Y',   req:r.As_ytop,bottom:false},
+  ];
+  const out={mesh,sag,z,topAll,zoneEdgesX:ex_,zoneEdgesY:ey_,zoneOf,layers:{},warnings:[]};
+  const lim=r.rcCheck.limits;
+  if(meshS>lim.sMaxMain) out.warnings.push(`Base mesh spacing ${meshS} mm exceeds s<sub>max</sub> = ${lim.sMaxMain} mm (§9.3.1.1(3)).`);
+  if(mesh.As<AsMin) out.warnings.push(`Base mesh ${barLbl(mesh)} (${mesh.As.toFixed(0)} mm²/m) is below A<sub>s,min</sub> = ${AsMin.toFixed(0)} mm²/m — additional bars are added throughout to make up A<sub>s,min</sub>; a heavier mesh is likely more economic.`);
+
+  for(const L of defs){
+    // Zone envelopes over every node of every element in the zone
+    const need=new Float64Array(nz), hasHog=new Uint8Array(nz), sagZ=new Uint8Array(nz);
+    for(let ey=0;ey<ny;ey++) for(let ex=0;ex<nx;ex++){
+      const zi=zoneOf[ey*nx+ex]; if(zi<0) continue;
+      for(const n of [nid(ex,ey),nid(ex+1,ey),nid(ex+1,ey+1),nid(ex,ey+1)]){
+        const q=L.req[n];
+        const d=L.bottom ? Math.max(q,AsMin) : (q>0?Math.max(q,AsMin):0);
+        if(d>need[zi]) need[zi]=d;
+        if(q>0) hasHog[zi]=1;
+        if(L.bottom && L.M && L.M[n]<0) sagZ[zi]=1;   // FEM convention: M<0 = sagging
+      }
+    }
+    const zBase=new Float64Array(nz), zAdd=new Array(nz).fill(null), zSrc=new Array(nz).fill('');
+    let nInsuf=0;
+    for(let zi=0;zi<nz;zi++){
+      const base=(L.bottom||topAll||hasHog[zi]) ? mesh.As : 0;
+      zBase[zi]=base;
+      let add=null, src='';
+      const strength=pickAddBar(need[zi]-base, meshS);
+      if(strength){ add=strength; src='strength'; if(strength.insufficient) nInsuf++; }
+      if(L.bottom && sag && sagZ[zi] && (!add || sag.As>add.As)){ add=sag; src='deflection'; }
+      zAdd[zi]=add; zSrc[zi]=src;
+    }
+    // Per-element provided As, per-node (max of adjacent elements), schedule
+    const elAs=new Float64Array(nx*ny), nodeAs=new Float64Array(r.nn);
+    const sched=new Map(); let meshArea=0, vol=0;
+    for(let ey=0;ey<ny;ey++) for(let ex=0;ex<nx;ex++){
+      const e=ey*nx+ex, zi=zoneOf[e]; if(zi<0) continue;
+      const A=r.elArea[e], add=zAdd[zi];
+      const As=zBase[zi]+(add?add.As:0);
+      elAs[e]=As; vol+=A*As*1e-6;
+      if(zBase[zi]>0) meshArea+=A;
+      if(add){
+        const k=barLbl(add)+'|'+zSrc[zi];
+        const it=sched.get(k)||{bar:add,src:zSrc[zi],area:0};
+        it.area+=A; sched.set(k,it);
+      }
+      for(const n of [nid(ex,ey),nid(ex+1,ey),nid(ex+1,ey+1),nid(ex,ey+1)]) if(As>nodeAs[n]) nodeAs[n]=As;
+    }
+    out.layers[L.key]={name:L.name,elAs,nodeAs,zAdd,zSrc,zBase,meshArea,
+      schedule:[...sched.values()].sort((a,b)=>b.bar.As-a.bar.As||b.area-a.area),
+      mass:vol*STEEL_DENSITY, nInsuf};
+    if(nInsuf) out.warnings.push(`${L.name}: ${nInsuf} zone(s) need more than H32 at the closest spacing — increase slab depth or detail locally.`);
+  }
+  let slabArea=0; for(let e=0;e<nx*ny;e++) slabArea+=r.elArea[e];
+  out.slabArea=slabArea; out.concVol=slabArea*r.h_mm/1000;
+  out.mass=Object.values(out.layers).reduce((s,l)=>s+l.mass,0);
+  out.kgPerM3=out.concVol>0?out.mass/out.concVol:0;
+  out.kgPerM2=slabArea>0?out.mass/slabArea:0;
+  return out;
 }
 
 function setMode(m){
@@ -2709,6 +2855,7 @@ async function solveAsync(){
   // Integrate design As (mm²/m ≡ 1e-6 m³ of steel per m² of slab) over every
   // active element, using the mean of its four corner values.
   let slabArea=0;
+  const elArea=new Float64Array(nx*ny);   // plan area of each active element (0 = outside slab)
   const layerVol={xbot:0,ybot:0,xtop:0,ytop:0}, layerVolReq={xbot:0,ybot:0,xtop:0,ytop:0};
   for(let ey=0;ey<ny;ey++) for(let ex=0;ex<nx;ex++){
     const et=elType(ex,ey); if(et==='outside') continue;
@@ -2721,7 +2868,7 @@ async function solveAsync(){
       A=0.5*Math.abs((nodeX[n0]*nodeY[n1]-nodeX[n1]*nodeY[n0])+(nodeX[n1]*nodeY[n2]-nodeX[n2]*nodeY[n1])
                     +(nodeX[n2]*nodeY[n3]-nodeX[n3]*nodeY[n2])+(nodeX[n3]*nodeY[n0]-nodeX[n0]*nodeY[n3]));
     }
-    slabArea+=A;
+    slabArea+=A; elArea[ey*nx+ex]=A;
     for(const L of layerDefs){
       layerVol[L.key]   +=A*(L.des[n0]+L.des[n1]+L.des[n2]+L.des[n3])/4*1e-6;
       layerVolReq[L.key]+=A*(L.req[n0]+L.req[n1]+L.req[n2]+L.req[n3])/4*1e-6;
@@ -2793,7 +2940,7 @@ async function solveAsync(){
     Mx:MX, My:MY, Mxy:MXY, Vx:VX, Vy:VY,
     WA_Mx_bot, WA_My_bot, WA_Mx_top, WA_My_top,
     As_xbot, As_ybot, As_xtop, As_ytop,
-    As_xbot_d, As_ybot_d, As_xtop_d, As_ytop_d, rcCheck, rebarEst,
+    As_xbot_d, As_ybot_d, As_xtop_d, As_ytop_d, rcCheck, rebarEst, elArea,
     h_mm, cnom_mm, phi_mm, fck_MPa,
     Mx_sls:MX_sls, My_sls:MY_sls, Mxy_sls:MXY_sls, Vx_sls:VX_sls, Vy_sls:VY_sls,
     xC,yC,nodeX:nXe,nodeY:nYe,nBoundary,colReact,geo,columns,poly:custPoly||null,voids:custVoids||[],walls:custWalls||[],
@@ -3213,8 +3360,11 @@ function renderRebarSummary(r){
   const ok='<span style="color:#1a8a3a;font-weight:700">OK</span>';
   const ng=t=>`<span style="color:var(--rubine);font-weight:700">${t}</span>`;
 
+  const prov=computeProvidedRebar(r);
+  r.prov=prov;
+  const pv=prov||{mass:est.mass,kgPerM3:est.kgPerM3,kgPerM2:est.kgPerM2,concVol:est.concVol,slabArea:est.slabArea};
   document.getElementById('sv-rebar').innerHTML=
-    `${n0(est.kgPerM3*f)} kg/m³ <span style="font-size:0.6rem;color:var(--text-dim)">(${n0(est.mass*f)} kg)</span>`;
+    `${n0(pv.kgPerM3*f)} kg/m³ <span style="font-size:0.6rem;color:var(--text-dim)">(${n0(pv.mass*f)} kg)</span>`;
 
   const lay=['xbot','ybot','xtop','ytop'];
   const rowsCheck=rc.layers.map(l=>`<tr>
@@ -3224,19 +3374,43 @@ function renderRebarSummary(r){
       <td>${pct(l.nMinGov,l.nTension)}</td>
       <td>${l.nAsMaxExceed?ng('FAIL ('+l.nAsMaxExceed+' nodes)'):ok}</td>
       <td>${l.nKexceed?ng('K &gt; K′ ('+l.nKexceed+' nodes)'):ok}</td></tr>`).join('');
-  const rowsEst=lay.map(k=>{
-    const e=est.layers[k];
-    return `<tr><td>${e.name}</td><td>${n0(e.avgAs)}</td><td>${n0(e.massReq)}</td>
-      <td>${n0(e.mass)}</td><td>${n0(e.mass*f)}</td>
-      <td>${n2(est.slabArea>0?e.mass*f/est.slabArea:0)}</td>
-      <td>${n1(est.concVol>0?e.mass*f/est.concVol:0)}</td></tr>`;
-  }).join('');
   const warnTxt=[];
   if(rc.nKexceed) warnTxt.push(`K = M/(b·d²·f<sub>ck</sub>) exceeds K′ = ${EC2_K_LIM} at ${rc.nKexceed} node-layer(s): compression reinforcement would be required — increase slab depth.`);
   if(rc.nAsMaxExceed) warnTxt.push(`A<sub>s,req</sub> exceeds A<sub>s,max</sub> = 0.04·A<sub>c</sub> at ${rc.nAsMaxExceed} node-layer(s) (§9.2.1.1(3)).`);
-  if(L.AsSpacing>L.AsMin) warnTxt.push(`With φ${r.phi_mm} bars at the maximum principal spacing s<sub>max</sub> = ${L.sMaxMain} mm (§9.3.1.1(3)), the least steel that can be detailed is ${n0(L.AsSpacing)} mm²/m (&gt; A<sub>s,min</sub>). The estimate uses the theoretical A<sub>s</sub>; consider a smaller bar.`);
 
   const th='style="background:var(--purple)"';
+  let provHtml='';
+  if(prov){
+    const rows=lay.map(k=>{
+      const P=prov.layers[k];
+      const meshTxt=P.meshArea>0?`${barLbl(prov.mesh)} <span style="color:var(--text-dim)">(${n0(prov.mesh.As)}) · ${n1(P.meshArea)} m²</span>`:'—';
+      const addTxt=P.schedule.length
+        ? P.schedule.map(it=>`+ ${barLbl(it.bar)} <span style="color:var(--text-dim)">(${n0(it.bar.As)})</span> over ${n1(it.area)} m²`+
+            (it.src==='deflection'?' <span style="color:var(--gold);font-weight:700">deflection</span>':'')).join('<br>')
+        : '<span style="color:var(--text-dim)">none</span>';
+      return `<tr><td>${P.name}</td><td>${meshTxt}</td><td>${addTxt}</td>
+        <td>${n0(P.mass)}</td><td>${n0(P.mass*f)}</td>
+        <td>${n2(prov.slabArea>0?P.mass*f/prov.slabArea:0)}</td>
+        <td>${n1(prov.concVol>0?P.mass*f/prov.concVol:0)}</td></tr>`;
+    }).join('');
+    provHtml=`
+    <table style="margin-bottom:6px">
+      <thead><tr><th ${th}>Layer</th><th ${th}>Base mesh (mm²/m)</th><th ${th}>Additional bars (mm²/m)</th>
+        <th ${th}>Provided (kg)</th><th ${th}>Incl. allowance (kg)</th><th ${th}>kg/m²</th><th ${th}>kg/m³</th></tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot><tr style="font-weight:700"><td>TOTAL</td><td></td><td></td>
+        <td>${n0(prov.mass)}</td><td>${n0(prov.mass*f)}</td><td>${n2(prov.kgPerM2*f)}</td>
+        <td style="color:var(--purple)">${n1(prov.kgPerM3*f)}</td></tr></tfoot>
+    </table>
+    <div style="font-size:0.62rem;color:var(--text-dim);line-height:1.7;margin-bottom:6px;">
+      Additional bars are rationalised into zones of ≈${prov.z} m (aligned to the column grid where present). Each zone is
+      detailed for the <strong>worst node inside it</strong> (max of A<sub>s,req</sub> and A<sub>s,min</sub>), using the
+      smallest standard bar at the mesh spacing or half of it.
+      ${prov.sag?`Deflection bars ${barLbl(prov.sag)} are added to bottom steel in every zone with sagging SLS moment in that direction; where strength needs more, the larger arrangement is used (not both).`:'No deflection bars set.'}
+      Top mesh: ${prov.topAll?'throughout slab':'hogging zones only'}.
+      ${prov.warnings.length?'<div style="color:var(--rubine);margin-top:4px;">⚠ '+prov.warnings.join('<br>⚠ ')+'</div>':''}
+    </div>`;
+  }
   const box=document.getElementById('rebarSummary');
   box.innerHTML=`
     <h3 style="font-size:0.8rem;color:var(--purple);margin:0 0 6px;">Minimum reinforcement — BS EN 1992-1-1</h3>
@@ -3263,28 +3437,76 @@ function renderRebarSummary(r){
       ${warnTxt.length?'<div style="color:var(--rubine);margin-top:4px;">⚠ '+warnTxt.join('<br>⚠ ')+'</div>':''}
     </div>
 
-    <h3 style="font-size:0.8rem;color:var(--purple);margin:0 0 6px;">Reinforcement estimate — whole slab</h3>
-    <table style="margin-bottom:6px">
-      <thead><tr><th ${th}>Layer</th><th ${th}>Mean A<sub>s</sub> (mm²/m)</th><th ${th}>From A<sub>s,req</sub> only (kg)</th>
-        <th ${th}>Incl. A<sub>s,min</sub> (kg)</th><th ${th}>Incl. allowance (kg)</th><th ${th}>kg/m²</th><th ${th}>kg/m³</th></tr></thead>
-      <tbody>${rowsEst}</tbody>
-      <tfoot><tr style="font-weight:700">
-        <td>TOTAL</td><td>—</td><td>${n0(est.massReq)}</td><td>${n0(est.mass)}</td><td>${n0(est.mass*f)}</td>
-        <td>${n2(est.kgPerM2*f)}</td><td style="color:var(--purple)">${n1(est.kgPerM3*f)}</td></tr></tfoot>
-    </table>
+    <h3 style="font-size:0.8rem;color:var(--purple);margin:0 0 6px;">Provided reinforcement &amp; estimate — whole slab</h3>
+    ${provHtml}
     <div style="font-size:1rem;color:var(--purple);font-weight:700;margin:10px 0 4px;">
-      ≈ ${n0(est.kgPerM3*f)} kg/m³ &nbsp;<span style="font-size:0.7rem;font-weight:400;color:var(--text-dim)">
-      (${n0(est.mass*f)} kg steel in ${n2(est.concVol)} m³ concrete)</span>
+      ≈ ${n0(pv.kgPerM3*f)} kg/m³ &nbsp;<span style="font-size:0.7rem;font-weight:400;color:var(--text-dim)">
+      (${n0(pv.mass*f)} kg steel in ${n2(pv.concVol)} m³ concrete · ${n2(pv.kgPerM2*f)} kg/m²)</span>
     </div>
     <div style="font-size:0.62rem;color:var(--text-dim);line-height:1.7;">
-      Slab plan area ${n2(est.slabArea)} m² · h = ${est.h_mm} mm · concrete volume ${n2(est.concVol)} m³ ·
-      steel density ${est.density} kg/m³ · allowance ${(allow*100).toFixed(0)}%.<br>
-      Theoretical quantity: design A<sub>s</sub> (mm²/m) integrated over the slab area for each of the four layers.
-      From A<sub>s,req</sub> only = ${n0(est.kgPerM3Req)} kg/m³. Excludes punching shear links, edge/trimmer bars and
-      curtailment/anchorage lengths unless covered by the allowance.
-    </div>`;
+      Slab plan area ${n2(est.slabArea)} m² · h = ${est.h_mm} mm · steel density ${est.density} kg/m³ · allowance ${(allow*100).toFixed(0)}%.<br>
+      For comparison, theoretical steel (A<sub>s</sub> exactly as required at every node, no bar rounding or zoning):
+      A<sub>s,req</sub> only = ${n0(est.kgPerM3Req)} kg/m³; incl. A<sub>s,min</sub> = ${n0(est.kgPerM3)} kg/m³.
+      Excludes punching shear links, edge/trimmer bars and laps/anchorage unless covered by the allowance.
+    </div>
+    <h3 style="font-size:0.8rem;color:var(--purple);margin:14px 0 6px;">Additional bar zones</h3>
+    <canvas id="cvRebarMap" style="width:100%;display:block;"></canvas>`;
   box.style.display='block';
   document.getElementById('sm-rebar').style.display='none';
+  if(prov) requestAnimationFrame(()=>drawRebarMap(r,prov));
+}
+
+// 2×2 plan maps of the additional-bar zones for each layer
+function drawRebarMap(r,prov){
+  const cv=document.getElementById('cvRebarMap'); if(!cv) return;
+  const W=Math.max(320,cv.clientWidth||cv.parentElement.clientWidth||800);
+  const gap=18, mw=(W-gap)/2, pad=20, lgH=44;
+  const sc=Math.min((mw-2*pad)/r.Lx, 260/r.Ly);
+  const pw=r.Lx*sc, ph=r.Ly*sc, mh=ph+2*pad+lgH;
+  const H=2*mh+gap;
+  const dpr=window.devicePixelRatio||1;
+  cv.width=W*dpr; cv.height=H*dpr; cv.style.height=H+'px';
+  const ctx=cv.getContext('2d'); ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,W,H);
+  const pal=['#d9d3f0','#9f8fe0','#554996','#2e7dd7','#20a39e','#f9b000','#ea4b79','#e50076','#7a0040'];
+  ['xbot','ybot','xtop','ytop'].forEach((k,idx)=>{
+    const P=prov.layers[k];
+    const ox=(idx%2)*(mw+gap)+(mw-pw)/2, oy=Math.floor(idx/2)*(mh+gap)+pad;
+    const X=x=>ox+x*sc, Y=y=>oy+ph-y*sc;
+    // colour per distinct arrangement — darker = heavier
+    const keys=[...new Set(P.schedule.slice().sort((a,b)=>a.bar.As-b.bar.As)
+      .map(it=>barLbl(it.bar)+(it.src==='deflection'?' (defl)':'')))];
+    const col={}; keys.forEach((kk,i)=>col[kk]=pal[Math.min(pal.length-1,i+1)]);
+    for(let ey=0;ey<r.ny;ey++) for(let ex=0;ex<r.nx;ex++){
+      const e=ey*r.nx+ex, zi=prov.zoneOf[e]; if(zi<0) continue;
+      const add=P.zAdd[zi];
+      ctx.fillStyle=add?col[barLbl(add)+(P.zSrc[zi]==='deflection'?' (defl)':'')]:(P.zBase[zi]>0?'#f1f1f4':'#ffffff');
+      const x0=X(r.gx[ex]), x1=X(r.gx[ex+1]), y0=Y(r.gy[ey+1]), y1=Y(r.gy[ey]);
+      ctx.fillRect(x0,y0,x1-x0+0.6,y1-y0+0.6);
+    }
+    // zone lines
+    ctx.strokeStyle='rgba(0,0,0,0.12)'; ctx.lineWidth=0.5;
+    for(const zx of prov.zoneEdgesX){ctx.beginPath();ctx.moveTo(X(zx),Y(0));ctx.lineTo(X(zx),Y(r.Ly));ctx.stroke();}
+    for(const zy of prov.zoneEdgesY){ctx.beginPath();ctx.moveTo(X(0),Y(zy));ctx.lineTo(X(r.Lx),Y(zy));ctx.stroke();}
+    if(r.poly&&r.poly.length>=3){
+      ctx.beginPath(); r.poly.forEach((p,i)=>i?ctx.lineTo(X(p.x),Y(p.y)):ctx.moveTo(X(p.x),Y(p.y)));
+      ctx.closePath(); ctx.strokeStyle='rgba(80,80,80,0.7)'; ctx.lineWidth=1.2; ctx.stroke();
+    } else { ctx.strokeStyle='rgba(80,80,80,0.7)'; ctx.lineWidth=1.2; ctx.strokeRect(X(0),Y(r.Ly),pw,ph); }
+    if(r.columns) for(const c of r.columns){
+      ctx.fillStyle='#333'; ctx.fillRect(X(c.x)-2.5,Y(c.y)-2.5,5,5);
+    }
+    ctx.fillStyle='#554996'; ctx.font='bold 11px Arial'; ctx.textAlign='left';
+    ctx.fillText(`${P.name} — ${barLbl(prov.mesh)} mesh${P.zBase.some(b=>b>0)?'':' (none)'}`,ox,oy-6);
+    // legend
+    let lx=ox, ly=oy+ph+14; ctx.font='10px Arial';
+    const items=[['mesh only','#f1f1f4']].concat(keys.map(kk=>['+ '+kk,col[kk]]));
+    for(const [t,c] of items){
+      const w=ctx.measureText(t).width+22;
+      if(lx+w>ox+pw && lx>ox){ lx=ox; ly+=14; }
+      ctx.fillStyle=c; ctx.fillRect(lx,ly-8,10,10); ctx.strokeStyle='#999'; ctx.strokeRect(lx,ly-8,10,10);
+      ctx.fillStyle='#444'; ctx.fillText(t,lx+14,ly+1); lx+=w;
+    }
+  });
 }
 
 function redrawAll(){
@@ -3325,6 +3547,7 @@ function redrawAll(){
       contour('cvIcrIu', gRes, gLTRes.icrIu,
         'Icr/Iu Ratio — cracking state per element (0=uncracked, →1=fully cracked)');
   }
+  if(gRes.prov && gCurrentTab==='rebar') drawRebarMap(gRes,gRes.prov);
   updateToolbar();
   // Reveal long-term section once main analysis is done
   const ltSecEl=document.getElementById('ltSec');
@@ -4375,8 +4598,15 @@ async function computeLongTermDefl(r){
   // As is in mm²/m → convert to m²/m for structural calcs.
   // Basic mat As (mm²/m): single mat for top & bottom, plus optional extra sagging bars at bottom
   const {bot: matAs_bot_mm2, top: matAs_top_mm2} = ltUpdateMatAs();
+  // Provided reinforcement layout (base mesh + zoned additional / deflection bars)
+  const prov = computeProvidedRebar(r);
 
   function _elAs(ex,ey,ns,isHog){
+    if(prov){
+      const e=ey*r.nx+ex, P=prov.layers;
+      return (isHog ? Math.max(P.xtop.elAs[e],P.ytop.elAs[e])
+                    : Math.max(P.xbot.elAs[e],P.ybot.elAs[e]))*1e-6;
+    }
     let As_avg=0;
     if(isHog){
       if(!r.As_xtop||!r.As_ytop) return Math.max(matAs_top_mm2,0)*1e-6;
@@ -4421,7 +4651,7 @@ async function computeLongTermDefl(r){
   const gx=r.gx, gy=r.gy;   // grid-line coordinates (non-uniform for irregular column grids)
 
   // ── Per-node signed SLS moment (sign determines sag vs hog) ─────────
-  // Use Mx_sls as representative; positive = sagging (tension at bottom)
+  // Use Mx_sls as representative; FEM sign convention: negative = sagging (tension at bottom)
   const M_sls_node=new Float64Array(nn);
   for(let i=0;i<nn;i++){
     // Use the larger in magnitude, signed by Mx
@@ -4452,7 +4682,7 @@ async function computeLongTermDefl(r){
     // Signed element moment (average of nodes)
     const M_avg=(M_sls_node[ns[0]]+M_sls_node[ns[1]]+
                  M_sls_node[ns[2]]+M_sls_node[ns[3]])/4;
-    const isHog = M_avg < 0;
+    const isHog = M_avg > 0;   // positive M = hogging (tension top) — see postProcess sign convention
 
     // As at element centroid
     const As_bot = _elAs(ex,ey,ns,false); // m²/m
