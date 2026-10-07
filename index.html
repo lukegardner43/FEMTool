@@ -1218,6 +1218,20 @@
         </select>
       </div>
       <label class="chk"><input type="checkbox" id="ltIter" checked> Iterate cracking (moment redistribution)</label>
+      <div class="subhd">After finishes: δ<sub>LT</sub> − δ<sub>ST</sub> at perimeter</div>
+      <div class="row2">
+        <div class="fld">
+          <label>Construction load (kN/m²)</label>
+          <input type="number" id="ltConst" value="0.75" step="0.25" min="0"
+                 title="Live load acting with self-weight before the finishes, SIDL and facade are installed">
+        </div>
+        <div class="fld">
+          <label>Perimeter limit span /</label>
+          <input type="number" id="ltIncLim" value="500" step="50" min="100">
+        </div>
+      </div>
+      <div class="hint" style="margin-bottom:6px;">δ<sub>ST</sub>: self-weight + construction load, short-term (E<sub>cm</sub>, β = 1.0, no shrinkage), no SIDL or facade.
+        L = span along the edge between the supports either side of each point.</div>
       <div style="font-size:0.58rem;color:var(--text-dim);margin:4px 0 6px;line-height:1.6;">
         Deflection under G<sub>k</sub> (DL+SIDL+FL) + ψ<sub>2</sub>·Q<sub>k</sub> (IL) — BS EN 1990 Eq. 6.16b.
       </div>
@@ -1422,6 +1436,8 @@
       </div>
     </div>
 
+    <div class="vpanel" id="p-incdefl"><div class="cwrap"><canvas id="cvIncDefl"></canvas>
+      <div class="statmsg" id="sm-incdefl"><div class="ico">📉</div><p>RUN LONG-TERM DEFLECTION</p></div></div></div>
     <!-- Provided reinforcement plans -->
     <div class="vpanel" id="p-pvxb"><div class="cwrap"><canvas id="cvPvxb"></canvas>
       <div class="statmsg" id="sm-pvxb"><div class="ico">🔩</div><p>NO RESULTS YET</p></div></div></div>
@@ -1479,6 +1495,7 @@
 
   <div class="rbar" id="rbar" style="display:none">
     <div class="st"><span class="stl">Max Deflection</span><span class="stv" id="sv-defl">—</span></div>
+    <div class="st" id="st-incdefl" style="display:none"><span class="stl">Perimeter LT − ST</span><span class="stv" id="sv-incdefl" style="color:var(--gold)">—</span></div>
     <div class="st" id="st-ltdefl" style="display:none"><span class="stl">Max LT Deflection</span><span class="stv" id="sv-ltdefl" style="color:var(--gold)">—</span></div>
     <div class="st"><span class="stl">Max |Mx|</span><span class="stv" id="sv-mx">—</span></div>
     <div class="st"><span class="stl">Max |My|</span><span class="stv" id="sv-my">—</span></div>
@@ -1975,7 +1992,7 @@ function lcv(lc, field){ return +document.getElementById(lc+'-'+field).value; }
 /* ── Result navigation: groups → views (each view is a .vpanel p-<id>) ── */
 const NAV=[
   {g:'model',  label:'Model',            items:[{p:'mesh',l:'Mesh & loads'}]},
-  {g:'defl',   label:'Deflection',       items:[{p:'defl',l:'Short-term',tag:'SLS'},{p:'ltdefl',l:'Long-term',tag:'EC2'},{p:'icrIu',l:'Cracking ζ',tag:'EC2'}]},
+  {g:'defl',   label:'Deflection',       items:[{p:'defl',l:'Short-term',tag:'SLS'},{p:'ltdefl',l:'Long-term',tag:'EC2'},{p:'incdefl',l:'LT − ST (finishes)'},{p:'icrIu',l:'Cracking ζ',tag:'EC2'}]},
   {g:'forces', label:'Moments & Shears', note:'ULS', items:[{p:'mx',l:'Mx'},{p:'my',l:'My'},{p:'mxy',l:'Mxy'},{p:'vx',l:'Vx'},{p:'vy',l:'Vy'}]},
   {g:'wa',     label:'Design Moments',   note:'Wood-Armer · ULS', items:[{p:'wamxb',l:'Mx* bottom'},{p:'wamyb',l:'My* bottom'},{p:'wamxt',l:'Mx* top'},{p:'wamyt',l:'My* top'}]},
   {g:'rebar',  label:'Reinforcement',    items:[{p:'rebar',l:'Summary & estimate'},
@@ -2017,7 +2034,7 @@ function showGroup(g){
 function showTab(el){ if(el&&el.dataset&&el.dataset.p) showPanel(el.dataset.p); }
 // Grey out views that have nothing to show yet
 function updateNavState(){
-  const has={ltdefl:!!(gLTRes&&gRes&&gLTRes.seq===gRes.seq), icrIu:!!(gLTRes&&gRes&&gLTRes.seq===gRes.seq),
+  const has={incdefl:!!(gLTRes&&gRes&&gLTRes.seq===gRes.seq&&gLTRes.winc), ltdefl:!!(gLTRes&&gRes&&gLTRes.seq===gRes.seq), icrIu:!!(gLTRes&&gRes&&gLTRes.seq===gRes.seq),
              react:!!(gRes&&gRes.colReact&&gRes.colReact.length)};
   document.querySelectorAll('.navs .tab').forEach(t=>{
     const p=t.dataset.p; t.classList.toggle('dim', !gRes || (p in has && !has[p]));
@@ -2041,7 +2058,7 @@ document.addEventListener('keydown',e=>{
 
 function updateToolbar(){
   const tb=document.getElementById('viewToolbar');
-  const noToolbar=['mesh','react','table','icrIu','rebar','pvxb','pvyb','pvxt','pvyt'];
+  const noToolbar=['mesh','react','table','icrIu','incdefl','rebar','pvxb','pvyb','pvxt','pvyt'];
   if(!gRes || noToolbar.includes(gCurrentTab)){
     tb.style.display='none'; return;
   }
@@ -2790,6 +2807,24 @@ async function solveAsync(){
     return F;
   })();
 
+  // Unit UDL (1 kN/m²) over the slab — used for the construction load in the
+  // short-term deflection that precedes the finishes (long-term − short-term check)
+  const F_U1=new Float64Array(ndof);
+  for(let ey=0;ey<ny;ey++) for(let ex=0;ex<nx;ex++){
+    const _ft=elType(ex,ey); if(_ft==='outside') continue;
+    const _n0=nid(ex,ey),_n1=nid(ex+1,ey),_n2=nid(ex+1,ey+1),_n3=nid(ex,ey+1);
+    if(_ft==='boundary'){
+      const _nc=nn+cNodeMap[ey*nx+ex];
+      _addTriF(_n0,_n1,_nc,1,F_U1); _addTriF(_n1,_n2,_nc,1,F_U1); _addTriF(_n2,_n3,_nc,1,F_U1); _addTriF(_n3,_n0,_nc,1,F_U1); continue;
+    }
+    const ns=[_n0,_n1,_n2,_n3];
+    const{xs,ys}=elXY(ex,ey);
+    for(const xi of g2) for(const eta of g2){
+      const sh=shd(xi,eta,xs,ys);
+      for(let k=0;k<4;k++) F_U1[3*ns[k]]+=sh.N[k]*sh.det;
+    }
+  }
+
   // ── Boundary conditions ───────────────────────────────────────────────────
   const fixed=new Set();
   if(gMode==='edge'){
@@ -2882,6 +2917,7 @@ async function solveAsync(){
   const u_SIDL = ldltSolve(dec,F_SIDL,ndof);
   const u_IL   = ldltSolve(dec,F_IL,  ndof);
   const u_FL   = ldltSolve(dec,F_FL,  ndof);
+  const u_U1   = ldltSolve(dec,F_U1,  ndof);
 
   // ── Combine: ULS for moments/shear, SLS for deflection ───────────────────
   // SLS: 1.0·DL + 1.0·SIDL + 1.0·IL
@@ -3019,10 +3055,10 @@ async function solveAsync(){
   // stiffness — independent of any inputs changed after this run.
   const model={nx,ny,nn,nnExt,ndof,nodeX:nXe,nodeY:nYe,nEl:mElE.length,
     elE:Int32Array.from(mElE), elType:Uint8Array.from(mElT), elN:Int32Array.from(mElN), elC:Int32Array.from(mElC),
-    fixed, F:{DL:F_DL,SIDL:F_SIDL,IL:F_IL,FL:F_FL}, nu};
+    fixed, F:{DL:F_DL,SIDL:F_SIDL,IL:F_IL,FL:F_FL,U1:F_U1}, nu};
 
   // Per-load-case displacements (long-term analysis combines them for its first pass)
-  model.u={DL:u_DL,SIDL:u_SIDL,IL:u_IL,FL:u_FL}; model.DbMain=DbMain; model.Ds=Ds;
+  model.u={DL:u_DL,SIDL:u_SIDL,IL:u_IL,FL:u_FL,U1:u_U1}; model.DbMain=DbMain; model.Ds=Ds;
   const res={nx,ny,Lx,Ly,dx,dy,gx,gy,nn,D,Ds,nu,h,
     w: Array.from(u_SLS.filter((_,i)=>i%3===0)),
     Mx:MX, My:MY, Mxy:MXY, Vx:VX, Vy:VY,
@@ -3643,7 +3679,7 @@ function rebarMeshInfo(){
     (sag?`<br>Sagging zones: mesh + H${sagPhi}@${sagS} = <strong>${(mesh.As+sag).toFixed(0)} mm²/m</strong> bottom`:'');
 }
 const _LIVE_INPUTS=new Set(['cnom','phi','ltMatPhi','ltMatSpacing','rbZone','rbMaxTypes','rbTopMesh','ltSagPhi','ltSagSpacing','rebarAllow']);
-const _LT_INPUTS=new Set(['ltRH','ltT0','ltCreep','ltBeta','ltCs','ltCsOn','ltPsi2','ltZetaComb','ltIter']);
+const _LT_INPUTS=new Set(['ltConst','ltIncLim','ltRH','ltT0','ltCreep','ltBeta','ltCs','ltCsOn','ltPsi2','ltZetaComb','ltIter']);
 function _onInputEdit(e){
   const id=e.target&&e.target.id;
   if(!id || id==='ltAuto' || _LIVE_INPUTS.has(id)) return;
@@ -3999,6 +4035,13 @@ function redrawAll(){
     draw('cvLTDefl', L.w_lt.map(w=>-w*1000),
       `Long-Term Deflection — EC2 QP (ψ₂=${L.psi2.toFixed(2)}, φ=${L.phi_creep.toFixed(2)}, β=${L.beta}`+
       `${L.csOn?`, ε_cs=${(L.eps_cs*1000).toFixed(3)}‰`:', no shrinkage'})${L.stale?' — OUT OF DATE':''} — mm`, true);
+    if(L.winc) contour('cvIncDefl', gRes, L.winc.map(w=>-w*1000),
+      `Incremental deflection δ_LT − δ_ST (after finishes) — mm · perimeter limit L/${L.inc?L.inc.ratio:500}${L.stale?' — OUT OF DATE':''}`,
+      (ctx,ws)=>{ const w=L.inc&&L.inc.worst; if(!w) return;
+        const{sx,sy}=ws(w.x,w.y); ctx.beginPath(); ctx.arc(sx,sy,8,0,Math.PI*2);
+        ctx.strokeStyle=L.inc.ok?'#1a8a3a':'#E50076'; ctx.lineWidth=2.5; ctx.stroke();
+        ctx.fillStyle=ctx.strokeStyle; ctx.font='bold 9px Arial'; ctx.textAlign='left';
+        ctx.fillText(`perimeter ${(w.d*1000).toFixed(1)} mm (L/${w.d>0?(w.L/w.d).toFixed(0):'∞'}, limit L/${L.inc.ratio})`,sx+11,sy-8); });
     contour('cvIcrIu', gRes, L.zeta,
       'Cracking ζ (Eq. 7.19) — 0 = uncracked, 1 = fully cracked (max of x, y)');
   }
@@ -4765,7 +4808,7 @@ function jetColor(t){
   const[r,g,b]=jetRGB(t); return`rgb(${r},${g},${b})`;
 }
 
-function contour(cid,r,vals,title){
+function contour(cid,r,vals,title,overlay){
   const{c,ctx,W,H}=setupCvs(cid);
   if(W<=1||H<=1) return;   // panel not visible yet
   ctx.clearRect(0,0,W,H); ctx.fillStyle='#FAFAFA'; ctx.fillRect(0,0,W,H);
@@ -4926,6 +4969,7 @@ function contour(cid,r,vals,title){
     ctx.fillText(lbl,sx,sy-9);
   };
   mark(mi,'MIN','#554996'); mark(xi,'MAX','#E50076');
+  if(overlay) overlay(ctx,ws);
 }
 
 /* ================================================================
@@ -5025,19 +5069,25 @@ function elementWA(m,mx,my,mxy){
   return {xb,yb,xt,yt};
 }
 
-async function computeLongTermDefl(r, onStep){
+// opts.short: short-term deflection at the time the finishes go on — self-weight
+// + construction live load only, Ecm (no creep), β = 1.0 (short-term loading,
+// Eq. 7.19), no shrinkage; same model, reinforcement and cracking method.
+async function computeLongTermDefl(r, onStep, opts){
   const m=r.model;
   if(!m) throw new Error('Run the main analysis first.');
-  const step=onStep||(()=>{});
+  const SHORT=!!(opts&&opts.short);
+  const step0=onStep||(()=>{});
+  const step=SHORT?(st,msg,pct)=>step0(st,'SHORT-TERM — '+msg,pct):step0;
   // Use the current cover / bar / reinforcement inputs even if a live refresh is pending
   clearTimeout(_liveTimer); designRebar(r);
   const prov=r.prov;
   if(!prov) throw new Error('Reinforcement layout not available.');
   // ── Long-term inputs (read now; a typed 0 is honoured) ───────────────────
-  const phi_creep=Math.max(0,numIn('ltCreep',2.5));
-  const beta =Math.min(1,Math.max(0,numIn('ltBeta',0.5)));
+  const phi_creep=SHORT?0:Math.max(0,numIn('ltCreep',2.5));
+  const beta =SHORT?1:Math.min(1,Math.max(0,numIn('ltBeta',0.5)));
   const psi2 =Math.min(1,Math.max(0,numIn('ltPsi2',0.3)));
-  const csOn =!!(document.getElementById('ltCsOn')||{checked:true}).checked;
+  const qCon =Math.max(0,numIn('ltConst',0.75));                        // construction live load, kN/m²
+  const csOn =!SHORT && !!(document.getElementById('ltCsOn')||{checked:true}).checked;
   const eps_cs=csOn?Math.max(0,numIn('ltCs',0.4))/1000:0;              // input in ‰
   const iterate=!!(document.getElementById('ltIter')||{checked:true}).checked;
   const zetaComb=(document.getElementById('ltZetaComb')||{value:'char'}).value;
@@ -5089,18 +5139,22 @@ async function computeLongTermDefl(r, onStep){
     }
   }
   const DbOf=i=>DbArr[i];
-  const comb=(cDL,cSI,cIL,cFL)=>{ const F=new Float64Array(m.ndof);
-    for(let k=0;k<m.ndof;k++) F[k]=cDL*m.F.DL[k]+cSI*m.F.SIDL[k]+cIL*m.F.IL[k]+cFL*m.F.FL[k]; return F; };
+  const comb=(cDL,cSI,cIL,cFL,cU=0)=>{ const F=new Float64Array(m.ndof);
+    for(let k=0;k<m.ndof;k++) F[k]=cDL*m.F.DL[k]+cSI*m.F.SIDL[k]+cIL*m.F.IL[k]+cFL*m.F.FL[k]+cU*m.F.U1[k]; return F; };
   const cIL=zetaComb==='qp'?psi2:1;
-  const F_crack=comb(1,1,cIL,1);                         // combination that sets the cracking extent
-  const F_qp=comb(1,1,psi2,1);                           // quasi-permanent combination (Eq. 6.16b)
+  // Combination that sets the cracking extent, and the one the deflection is reported for:
+  //   long-term : cracking from characteristic (or QP) moments, deflection under QP (Eq. 6.16b)
+  //   short-term: self-weight + construction load for both
+  const F_crack=SHORT?comb(1,0,0,0,qCon):comb(1,1,cIL,1);
+  const F_qp   =SHORT?comb(1,0,0,0,qCon):comb(1,1,psi2,1);
 
   // ── Pass 0: cracking from the elastic (uncracked) moments of the main run ─
   step('zeta','CRACKING FROM ELASTIC MOMENTS',null); await yieldFrame();
   let nm;
-  if(zetaComb==='qp'){
+  if(SHORT || zetaComb==='qp'){
     const u0=new Float64Array(m.ndof);
-    for(let k=0;k<m.ndof;k++) u0[k]=m.u.DL[k]+m.u.SIDL[k]+psi2*m.u.IL[k]+m.u.FL[k];
+    for(let k=0;k<m.ndof;k++) u0[k]=SHORT ? m.u.DL[k]+qCon*m.u.U1[k]
+                                          : m.u.DL[k]+m.u.SIDL[k]+psi2*m.u.IL[k]+m.u.FL[k];
     nm=nodalMoments(m,u0,()=>m.DbMain);
   } else nm={mx:r.Mx_sls,my:r.My_sls,mxy:r.Mxy_sls};
   updateZeta(elementWA(m,nm.mx,nm.my,nm.mxy),false);
@@ -5169,12 +5223,63 @@ async function computeLongTermDefl(r, onStep){
     for(let q=0;q<4;q++){ const n=m.elN[4*i+q]; zN[n]+=z; cN[n]++; }
   }
   for(let n=0;n<nn;n++) if(cN[n]>0) zN[n]/=cN[n];
+  if(SHORT) return {w:Array.from(w_lt), maxW, iMax, qCon, maxZeta, crackedFrac:area>0?crackedArea/area:0,
+    iterations:iterate?it:0, converged, Eeff:Eeff*1000};
   return {seq:r.seq, ltSeq:++gLTSeq,
     w_lt:Array.from(w_lt), w_load:Array.from(w_load), w_cs:Array.from(w_cs), zeta:Array.from(zN),
     maxW, maxLoad:iMax>=0?Math.abs(w_load[iMax]):0, maxCs:iMax>=0?Math.abs(w_cs[iMax]):0, iMax,
     phi_creep, beta, psi2, eps_cs, csOn, iterate, zetaComb, iterations:iterate?it:0, converged, lastDz, lastDw,
     Eeff:Eeff*1000, alpha_e:ae, Mcr, fctm, maxZeta, crackedFrac:area>0?crackedArea/area:0,
     nNoSteel, mesh:prov.mesh, sag:prov.sag};
+}
+
+/* ── Incremental deflection after finishes: δ_inc = δ_LT − δ_ST ─────────────
+   Checked along the slab perimeter (facade line) against L/limit, where L is
+   the span along the edge between the supports either side of the point
+   (columns / walls / supported edges on or within ~1 m of the perimeter). */
+function _polyArc(poly){
+  const cum=[0]; for(let i=0;i<poly.length;i++){ const a=poly[i], b=poly[(i+1)%poly.length]; cum.push(cum[i]+Math.hypot(b.x-a.x,b.y-a.y)); }
+  return cum;
+}
+// Nearest point on the closed polygon: {d, s} (distance, arc-length position)
+function _polyProject(poly,cum,x,y){
+  let best={d:Infinity,s:0};
+  for(let i=0;i<poly.length;i++){
+    const a=poly[i], b=poly[(i+1)%poly.length], ex=b.x-a.x, ey=b.y-a.y, L2=ex*ex+ey*ey; if(L2<1e-16) continue;
+    const t=Math.max(0,Math.min(1,((x-a.x)*ex+(y-a.y)*ey)/L2));
+    const d=Math.hypot(x-a.x-t*ex,y-a.y-t*ey);
+    if(d<best.d) best={d,s:cum[i]+t*Math.sqrt(L2)};
+  }
+  return best;
+}
+function perimeterIncCheck(r, winc, ratio){
+  const m=r.model, X=r.nodeX, Y=r.nodeY, act=r.nodeActive;
+  const poly=(r.poly&&r.poly.length>=3)?r.poly:[{x:0,y:0},{x:r.Lx,y:0},{x:r.Lx,y:r.Ly},{x:0,y:r.Ly}];
+  const cum=_polyArc(poly), P=cum[cum.length-1];
+  const h=Math.min(r.dx,r.dy), tolEdge=0.05*h, tolSup=Math.max(1.0,2*h);
+  // support stations along the perimeter (w restrained)
+  const st=[];
+  for(let n=0;n<r.nn;n++){
+    if(!act[n] || !m.fixed.has(3*n)) continue;
+    const pr=_polyProject(poly,cum,X[n],Y[n]); if(pr.d<=tolSup) st.push(pr.s);
+  }
+  st.sort((a,b)=>a-b);
+  const pts=[]; let worst=null;
+  for(let n=0;n<r.nn;n++){
+    if(!act[n]) continue;
+    const pr=_polyProject(poly,cum,X[n],Y[n]); if(pr.d>tolEdge) continue;
+    if(m.fixed.has(3*n)) continue;                       // a support itself
+    let L=P;
+    if(st.length){
+      let k=st.findIndex(v=>v>pr.s);                     // next station (cyclic)
+      const sb=k<0?st[0]+P:st[k], sa=k<=0?st[st.length-1]-(k===0?P:0):st[k-1];
+      L=sb-sa; if(L<=0) L+=P;
+    }
+    const d=Math.abs(winc[n]), lim=L/ratio, u=lim>0?d/lim:0;
+    pts.push(n);
+    if(!worst||u>worst.util) worst={n,d,L,lim,util:u,x:X[n],y:Y[n]};
+  }
+  return {ratio, nPts:pts.length, nSupports:st.length, worst, ok:!worst||worst.util<=1};
 }
 
 // Creep / shrinkage inputs: Annex B values unless the user typed an override
@@ -5212,7 +5317,16 @@ async function runLongTerm(opts){
   _ltTimerInterval=setInterval(()=>{ if(timerEl) timerEl.textContent=((performance.now()-t0)/1000).toFixed(1)+' s'; },100);
   await yieldFrame(); await yieldFrame();
   try{
-    gLTRes=await computeLongTermDefl(gRes,(st,msg,pct)=>{ setLtStep(st); setLtTxt(msg,pct); });
+    const stepFn=(st,msg,pct)=>{ setLtStep(st); setLtTxt(msg,pct); };
+    const L=await computeLongTermDefl(gRes,stepFn);
+    // Short-term deflection when finishes are installed → incremental δ_LT − δ_ST
+    const S=await computeLongTermDefl(gRes,stepFn,{short:true});
+    const winc=L.w_lt.map((w,i)=>w-S.w[i]);
+    const ratio=Math.max(1,numIn('ltIncLim',500));
+    L.st=S; L.winc=winc; L.inc=perimeterIncCheck(gRes,winc,ratio);
+    let mi=0; for(let i=0;i<winc.length;i++) if(gRes.nodeActive[i]&&Math.abs(winc[i])>Math.abs(winc[mi])) mi=i;
+    L.maxInc=Math.abs(winc[mi]);
+    gLTRes=L;
     setLtStep('render'); setLtTxt('RENDERING', null); await yieldFrame();
     updateDesignStats(gRes); renderRebarSummary(gRes); rebarMeshInfo();
     showLTResults();
@@ -5235,9 +5349,10 @@ function showLTResults(){
   const info=document.getElementById('ltInfo'), btn=document.getElementById('ltRunBtn');
   if(!L||!gRes){
     if(st) st.style.display='none';
+    const sti=document.getElementById('st-incdefl'); if(sti) sti.style.display='none';
     if(info) info.style.display='none';
-    ['sm-ltdefl','sm-icrIu'].forEach(id=>{const e=document.getElementById(id); if(e) e.style.display='';});
-    ['cvLTDefl','cvIcrIu'].forEach(id=>{const c=document.getElementById(id); if(c){ c.getContext('2d').clearRect(0,0,c.width,c.height);} });
+    ['sm-ltdefl','sm-icrIu','sm-incdefl'].forEach(id=>{const e=document.getElementById(id); if(e) e.style.display='';});
+    ['cvLTDefl','cvIcrIu','cvIncDefl'].forEach(id=>{const c=document.getElementById(id); if(c){ c.getContext('2d').clearRect(0,0,c.width,c.height);} });
     if(btn) btn.classList.remove('stale');
     return;
   }
@@ -5248,7 +5363,14 @@ function showLTResults(){
   sv.innerHTML=`${dmm.toFixed(2)} mm <span style="font-size:0.6rem;color:var(--text-dim)">L/${isFinite(ratio)?ratio.toFixed(0):'∞'}</span> `+
     (stale?'<span class="lc-badge uls">OUT OF DATE</span>':`<span class="lc-badge ${ok?'sls':'uls'}">${ok?'≤ L/250':'> L/250'}</span>`);
   st.style.display='';
-  ['sm-ltdefl','sm-icrIu'].forEach(id=>{const e=document.getElementById(id); if(e) e.style.display='none';});
+  ['sm-ltdefl','sm-icrIu','sm-incdefl'].forEach(id=>{const e=document.getElementById(id); if(e) e.style.display='none';});
+  const I=L.inc, sti=document.getElementById('st-incdefl'), svi=document.getElementById('sv-incdefl');
+  if(I&&I.worst&&sti){
+    const w=I.worst;
+    svi.innerHTML=`${(w.d*1000).toFixed(2)} mm <span style="font-size:0.6rem;color:var(--text-dim)">L/${w.d>0?(w.L/w.d).toFixed(0):'∞'}</span> `+
+      (stale?'<span class="lc-badge uls">OUT OF DATE</span>':`<span class="lc-badge ${I.ok?'sls':'uls'}">${I.ok?'≤':'>'} L/${I.ratio}</span>`);
+    sti.style.display='';
+  } else if(sti) sti.style.display='none';
   if(info){
     info.style.display='block';
     const cs=L.csOn?`${(L.maxCs*1000).toFixed(2)} mm shrinkage (ε<sub>cs</sub> = ${(L.eps_cs*1000).toFixed(3)}‰)`:'shrinkage off';
@@ -5258,6 +5380,11 @@ function showLTResults(){
       `M<sub>cr</sub> = ${L.Mcr.toFixed(1)} kNm/m · ψ₂ = ${L.psi2.toFixed(2)} · β = ${L.beta}<br>`+
       `Cracked area ${(L.crackedFrac*100).toFixed(0)}% · max ζ = ${L.maxZeta.toFixed(2)} · ζ from ${L.zetaComb==='qp'?'quasi-permanent':'characteristic'} moments`+
       (L.iterate?` · ${L.iterations} iteration${L.iterations===1?'':'s'}${L.converged?'':' (not converged)'}`:' · no iteration')+
+      (I&&I.worst?`<br><strong>Perimeter δ<sub>LT</sub> − δ<sub>ST</sub> = ${(I.worst.d*1000).toFixed(2)} mm</strong> vs L/${I.ratio} = ${(I.worst.lim*1000).toFixed(1)} mm `+
+        `(L = ${I.worst.L.toFixed(2)} m between supports, at x=${I.worst.x.toFixed(2)}, y=${I.worst.y.toFixed(2)}) → `+
+        `<strong style="color:${I.ok?'#1a8a3a':'var(--rubine)'}">${I.ok?'OK':'FAILS'}</strong> (utilisation ${(I.worst.util*100).toFixed(0)}%)<br>`+
+        `δ<sub>ST</sub> = self-weight + ${L.st.qCon} kN/m² construction load, E<sub>cm</sub>, β = 1.0, no shrinkage `+
+        `(max ${(L.st.maxW*1000).toFixed(2)} mm) · max δ<sub>LT</sub> − δ<sub>ST</sub> anywhere ${(L.maxInc*1000).toFixed(2)} mm`:'')+
       (L.nNoSteel?`<br><span style="color:var(--rubine)">⚠ ${L.nNoSteel} element-direction(s) exceed M<sub>cr</sub> with no tension steel on that face — treated as uncracked.</span>`:'')+
       (stale?'<br><span style="color:var(--rubine)">Inputs changed — press the button to update.</span>':'');
   }
