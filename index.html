@@ -1218,7 +1218,7 @@
         </select>
       </div>
       <label class="chk"><input type="checkbox" id="ltIter" checked> Iterate cracking (moment redistribution)</label>
-      <div class="subhd">After finishes: δ<sub>LT</sub> − δ<sub>ST</sub> at perimeter</div>
+      <div class="subhd">δ<sub>LT</sub> − δ<sub>ST</sub> at perimeter <span>(ST = before finishes)</span></div>
       <div class="row2">
         <div class="fld">
           <label>Construction load (kN/m²)</label>
@@ -1230,7 +1230,7 @@
           <input type="number" id="ltIncLim" value="500" step="50" min="100">
         </div>
       </div>
-      <div class="hint" style="margin-bottom:6px;">δ<sub>ST</sub>: self-weight + construction load, short-term (E<sub>cm</sub>, β = 1.0, no shrinkage), no SIDL or facade.
+      <div class="hint" style="margin-bottom:6px;">δ<sub>ST</sub> (before finishes): self-weight + construction load, short-term (E<sub>cm</sub>, β = 1.0, no shrinkage), no SIDL or facade.
         L = span along the edge between the supports either side of each point.</div>
       <div style="font-size:0.58rem;color:var(--text-dim);margin:4px 0 6px;line-height:1.6;">
         Deflection under G<sub>k</sub> (DL+SIDL+FL) + ψ<sub>2</sub>·Q<sub>k</sub> (IL) — BS EN 1990 Eq. 6.16b.
@@ -1992,7 +1992,7 @@ function lcv(lc, field){ return +document.getElementById(lc+'-'+field).value; }
 /* ── Result navigation: groups → views (each view is a .vpanel p-<id>) ── */
 const NAV=[
   {g:'model',  label:'Model',            items:[{p:'mesh',l:'Mesh & loads'}]},
-  {g:'defl',   label:'Deflection',       items:[{p:'defl',l:'Short-term',tag:'SLS'},{p:'ltdefl',l:'Long-term',tag:'EC2'},{p:'incdefl',l:'LT − ST (finishes)'},{p:'icrIu',l:'Cracking ζ',tag:'EC2'}]},
+  {g:'defl',   label:'Deflection',       items:[{p:'defl',l:'Short-term',tag:'SLS'},{p:'ltdefl',l:'Long-term',tag:'EC2'},{p:'incdefl',l:'LT − ST (ST before finishes)'},{p:'icrIu',l:'Cracking ζ',tag:'EC2'}]},
   {g:'forces', label:'Moments & Shears', note:'ULS', items:[{p:'mx',l:'Mx'},{p:'my',l:'My'},{p:'mxy',l:'Mxy'},{p:'vx',l:'Vx'},{p:'vy',l:'Vy'}]},
   {g:'wa',     label:'Design Moments',   note:'Wood-Armer · ULS', items:[{p:'wamxb',l:'Mx* bottom'},{p:'wamyb',l:'My* bottom'},{p:'wamxt',l:'Mx* top'},{p:'wamyt',l:'My* top'}]},
   {g:'rebar',  label:'Reinforcement',    items:[{p:'rebar',l:'Summary & estimate'},
@@ -4036,7 +4036,7 @@ function redrawAll(){
       `Long-Term Deflection — EC2 QP (ψ₂=${L.psi2.toFixed(2)}, φ=${L.phi_creep.toFixed(2)}, β=${L.beta}`+
       `${L.csOn?`, ε_cs=${(L.eps_cs*1000).toFixed(3)}‰`:', no shrinkage'})${L.stale?' — OUT OF DATE':''} — mm`, true);
     if(L.winc) contour('cvIncDefl', gRes, L.winc.map(w=>-w*1000),
-      `Incremental deflection δ_LT − δ_ST (after finishes) — mm · perimeter limit L/${L.inc?L.inc.ratio:500}${L.stale?' — OUT OF DATE':''}`,
+      `Incremental deflection δ_LT − δ_ST (δ_ST = short-term, before finishes) — mm · perimeter limit L/${L.inc?L.inc.ratio:500}${L.stale?' — OUT OF DATE':''}`,
       (ctx,ws)=>{ const w=L.inc&&L.inc.worst; if(!w) return;
         const{sx,sy}=ws(w.x,w.y); ctx.beginPath(); ctx.arc(sx,sy,8,0,Math.PI*2);
         ctx.strokeStyle=L.inc.ok?'#1a8a3a':'#E50076'; ctx.lineWidth=2.5; ctx.stroke();
@@ -5383,7 +5383,7 @@ function showLTResults(){
       (I&&I.worst?`<br><strong>Perimeter δ<sub>LT</sub> − δ<sub>ST</sub> = ${(I.worst.d*1000).toFixed(2)} mm</strong> vs L/${I.ratio} = ${(I.worst.lim*1000).toFixed(1)} mm `+
         `(L = ${I.worst.L.toFixed(2)} m between supports, at x=${I.worst.x.toFixed(2)}, y=${I.worst.y.toFixed(2)}) → `+
         `<strong style="color:${I.ok?'#1a8a3a':'var(--rubine)'}">${I.ok?'OK':'FAILS'}</strong> (utilisation ${(I.worst.util*100).toFixed(0)}%)<br>`+
-        `δ<sub>ST</sub> = self-weight + ${L.st.qCon} kN/m² construction load, E<sub>cm</sub>, β = 1.0, no shrinkage `+
+        `δ<sub>ST</sub> (before finishes) = self-weight + ${L.st.qCon} kN/m² construction load, E<sub>cm</sub>, β = 1.0, no shrinkage `+
         `(max ${(L.st.maxW*1000).toFixed(2)} mm) · max δ<sub>LT</sub> − δ<sub>ST</sub> anywhere ${(L.maxInc*1000).toFixed(2)} mm`:'')+
       (L.nNoSteel?`<br><span style="color:var(--rubine)">⚠ ${L.nNoSteel} element-direction(s) exceed M<sub>cr</sub> with no tension steel on that face — treated as uncracked.</span>`:'')+
       (stale?'<br><span style="color:var(--rubine)">Inputs changed — press the button to update.</span>':'');
