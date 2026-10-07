@@ -305,6 +305,17 @@
   .run-btn:disabled{opacity:0.4;cursor:not-allowed;transform:none;box-shadow:none;}
 
   /* Info boxes */
+  .chk{display:flex;align-items:center;gap:6px;font-size:0.65rem;margin:4px 0 8px;cursor:pointer;color:var(--text);}
+  .hint{font-size:0.55rem;color:var(--text-dim);margin-top:2px;line-height:1.4;}
+  .hint a{color:var(--purple);}
+  .run-btn.stale{box-shadow:0 0 0 2px var(--rubine) inset;}
+  #staleBanner{display:none;background:rgba(229,0,118,0.08);border-bottom:1px solid rgba(229,0,118,0.35);
+    color:var(--rubine);font-family:Arial,sans-serif;font-size:0.68rem;padding:6px 14px;}
+  #staleBanner button{margin-left:10px;font-size:0.62rem;padding:3px 10px;border:1px solid var(--rubine);
+    background:#fff;color:var(--rubine);cursor:pointer;font-weight:700;}
+  .subhd{font-family:Arial,sans-serif;font-weight:700;font-size:0.6rem;letter-spacing:1px;text-transform:uppercase;
+    color:var(--text-dim);margin:10px 0 4px;}
+  .subhd span{font-weight:400;text-transform:none;letter-spacing:0;font-size:0.56rem;}
   .ibox{
     background:rgba(229,0,118,0.04);
     border-left: 3px solid var(--rubine);
@@ -344,6 +355,30 @@
   }
   .tab:hover{color:var(--rubine);}
   .tab.on{color:var(--rubine);border-bottom-color:var(--rubine);}
+
+  /* Two-level result navigation */
+  .navwrap{background:var(--white);border-bottom:1px solid var(--mgrey);}
+  .navg{display:flex;gap:2px;padding:0 10px;overflow-x:auto;border-bottom:1px solid var(--mgrey);}
+  .navg::-webkit-scrollbar{height:2px;}
+  .navg-btn{font-family:Arial,sans-serif;font-weight:700;font-size:0.62rem;letter-spacing:1px;text-transform:uppercase;
+    padding:12px 14px 9px;color:var(--text-dim);background:none;border:none;border-bottom:3px solid transparent;
+    margin-bottom:-1px;cursor:pointer;white-space:nowrap;transition:color .15s;}
+  .navg-btn:hover{color:var(--rubine);}
+  .navg-btn.on{color:var(--rubine);border-bottom-color:var(--rubine);}
+  .navs{display:flex;align-items:center;gap:6px;padding:7px 12px;overflow-x:auto;min-height:40px;background:var(--offwhite);}
+  .navs::-webkit-scrollbar{height:2px;}
+  .navs-grp{display:flex;align-items:center;gap:6px;}
+  .navs .tab{font-family:Arial,sans-serif;font-size:0.64rem;font-weight:700;letter-spacing:0.2px;text-transform:none;
+    padding:5px 12px;margin:0;border:1px solid var(--mgrey);border-radius:14px;background:var(--white);
+    color:var(--text-dim);cursor:pointer;white-space:nowrap;}
+  .navs .tab:hover{color:var(--rubine);border-color:var(--rubine);}
+  .navs .tab.on{background:var(--rubine);border-color:var(--rubine);color:#fff;}
+  .navs .tab.dim:not(.on){opacity:0.45;}
+  .navs .tab small{font-size:0.5rem;opacity:0.8;margin-left:3px;}
+  .navsep{font-family:Arial,sans-serif;font-size:0.55rem;font-weight:700;letter-spacing:1px;text-transform:uppercase;
+    color:var(--text-dim);margin:0 0 0 10px;white-space:nowrap;}
+  .navnote{font-family:Arial,sans-serif;font-size:0.56rem;color:var(--text-dim);margin-left:8px;white-space:nowrap;}
+  .navhint{margin-left:auto;padding-left:14px;font-family:Arial,sans-serif;font-size:0.55rem;color:var(--text-dim);white-space:nowrap;}
 
   .varea{flex:1;position:relative;overflow:hidden;background:var(--offwhite);}
   .vpanel{display:none;width:100%;height:100%;flex-direction:column;}
@@ -596,8 +631,8 @@
       line-height:1;
     }
 
-    /* Tab row: hide on mobile, replaced by dropdown */
-    .tabs{ display:none; }
+    /* Tab rows: hide on mobile, replaced by dropdown */
+    .tabs, .navwrap{ display:none; }
 
     /* Mobile graph selector dropdown */
     #mobTabSelect{
@@ -816,12 +851,12 @@
       </div>
       <div class="fld">
         <label>c<sub>nom</sub> (mm)</label>
-        <input type="number" id="cnom" value="30" step="5" min="10" max="100" oninput="updateRebarInfo()">
+        <input type="number" id="cnom" value="30" step="5" min="10" max="100" oninput="designInputsChanged()">
       </div>
     </div>
     <div class="fld">
-      <label>Bar diameter φ (mm)</label>
-      <select id="phi" onchange="updateRebarInfo()">
+      <label>Design bar φ for d (mm)</label>
+      <select id="phi" onchange="designInputsChanged()">
         <option value="8">8</option>
         <option value="10">10</option>
         <option value="12">12</option>
@@ -836,70 +871,75 @@
       d = h − c<sub>nom</sub> − φ/2
     </div>
     <div class="ibox" id="rebarMinInfo" style="font-size:0.62rem;color:var(--text-dim);line-height:1.7;">—</div>
-      <!-- Base mesh (provided throughout) -->
-      <div style="font-family:Arial,sans-serif;font-weight:700;font-size:0.6rem;letter-spacing:1px;text-transform:uppercase;color:var(--text-dim);margin-top:4px;margin-bottom:4px;">Base Mesh (top &amp; bottom)</div>
-      <div style="font-size:0.58rem;color:var(--text-dim);margin-bottom:6px;line-height:1.5;">
-        Provided throughout the slab (e.g. H12@200 = 565 mm²/m). Additional bars are added in zones where A<sub>s,req</sub> or A<sub>s,min</sub> exceeds it.
+
+    <div class="subhd">Provided reinforcement</div>
+    <div style="font-size:0.58rem;color:var(--text-dim);margin-bottom:6px;line-height:1.5;">
+      Base mesh on both faces plus additional bars in zones where A<sub>s,req</sub> or A<sub>s,min</sub> exceeds it.
+      Changes here update the estimate and plots immediately.
+    </div>
+    <div class="row2">
+      <div class="fld">
+        <label>Base mesh bar</label>
+        <select id="ltMatPhi" onchange="rebarInputsChanged()">
+          <option value="auto" selected>Auto (≥ As,min)</option>
+          <option value="8">H8</option>
+          <option value="10">H10</option>
+          <option value="12">H12</option>
+          <option value="16">H16</option>
+          <option value="20">H20</option>
+          <option value="25">H25</option>
+        </select>
       </div>
-      <div class="row2">
-        <div class="fld">
-          <label>Bar dia. (mm)</label>
-          <select id="ltMatPhi" onchange="rebarInputsChanged()">
-            <option value="8">H8</option>
-            <option value="10">H10</option>
-            <option value="12" selected>H12</option>
-            <option value="16">H16</option>
-            <option value="20">H20</option>
-            <option value="25">H25</option>
-          </select>
-        </div>
-        <div class="fld">
-          <label>Spacing (mm)</label>
-          <input type="number" id="ltMatSpacing" value="200" step="25" min="50" max="400" oninput="rebarInputsChanged()">
-        </div>
+      <div class="fld">
+        <label>Mesh spacing (mm)</label>
+        <input type="number" id="ltMatSpacing" value="200" step="25" min="50" max="400" oninput="rebarInputsChanged()">
       </div>
-      <div style="font-size:0.62rem;color:var(--text-dim);margin-bottom:6px;">
-        Mat As = <strong id="ltMatAsVal">565</strong> mm²/m
+    </div>
+    <div class="row2">
+      <div class="fld">
+        <label>Bar zone size (m)</label>
+        <input type="number" id="rbZone" value="1.0" step="0.25" min="0.25" max="5" oninput="rebarInputsChanged()"
+               title="Additional bars are rationalised into zones of about this size; each zone is detailed for the worst node inside it">
       </div>
-      <!-- Additional sagging bars -->
-      <div style="font-family:Arial,sans-serif;font-weight:700;font-size:0.6rem;letter-spacing:1px;text-transform:uppercase;color:var(--text-dim);margin-top:4px;margin-bottom:4px;">Deflection Bars — Sagging Zones <span style="font-size:0.55rem;font-weight:400;text-transform:none;letter-spacing:0;">(bottom only, added to mat)</span></div>
-      <div style="font-size:0.58rem;color:var(--text-dim);margin-bottom:6px;line-height:1.5;">
-        Extra bottom bars for long-term deflection, placed in sagging zones (each direction). Where strength needs more, the larger arrangement is provided.
+      <div class="fld">
+        <label>Max bar types / layer</label>
+        <select id="rbMaxTypes" onchange="rebarInputsChanged()"
+                title="Additional-bar arrangements per layer; zones are rounded up to the nearest kept arrangement">
+          <option value="1">1</option>
+          <option value="2">2</option>
+          <option value="3" selected>3</option>
+          <option value="4">4</option>
+          <option value="6">6</option>
+          <option value="0">No limit</option>
+        </select>
       </div>
-      <div class="row2">
-        <div class="fld">
-          <label>Bar dia. (mm)</label>
-          <select id="ltSagPhi" onchange="rebarInputsChanged()">
-            <option value="0" selected>None</option>
-            <option value="10">H10</option>
-            <option value="12">H12</option>
-            <option value="16">H16</option>
-            <option value="20">H20</option>
-            <option value="25">H25</option>
-          </select>
-        </div>
-        <div class="fld">
-          <label>Spacing (mm)</label>
-          <input type="number" id="ltSagSpacing" value="200" step="25" min="50" max="400" oninput="rebarInputsChanged()">
-        </div>
+    </div>
+    <div class="fld">
+      <label>Top mesh</label>
+      <select id="rbTopMesh" onchange="rebarInputsChanged()">
+        <option value="all" selected>Throughout slab</option>
+        <option value="hog">Hogging zones only</option>
+      </select>
+    </div>
+    <div class="subhd">Deflection bars <span>(bottom, sagging zones)</span></div>
+    <div class="row2">
+      <div class="fld">
+        <label>Bar dia. (mm)</label>
+        <select id="ltSagPhi" onchange="rebarInputsChanged()">
+          <option value="0" selected>None</option>
+          <option value="10">H10</option>
+          <option value="12">H12</option>
+          <option value="16">H16</option>
+          <option value="20">H20</option>
+          <option value="25">H25</option>
+        </select>
       </div>
-      <div style="font-size:0.62rem;color:var(--text-dim);margin-bottom:6px;">
-        Sagging-zone bot = mesh + deflection bars = <strong id="ltMatAsValBot">565</strong> mm²/m &nbsp;·&nbsp; top = <strong id="ltMatAsValTop">565</strong> mm²/m
+      <div class="fld">
+        <label>Spacing (mm)</label>
+        <input type="number" id="ltSagSpacing" value="200" step="25" min="50" max="400" oninput="rebarInputsChanged()">
       </div>
-      <div class="row2">
-        <div class="fld">
-          <label>Bar zone size (m)</label>
-          <input type="number" id="rbZone" value="1.0" step="0.25" min="0.25" max="5" oninput="rebarInputsChanged()"
-                 title="Additional bars are rationalised into zones of about this size; each zone is detailed for the worst node inside it">
-        </div>
-        <div class="fld">
-          <label>Top mesh</label>
-          <select id="rbTopMesh" onchange="rebarInputsChanged()">
-            <option value="all" selected>Throughout slab</option>
-            <option value="hog">Hogging zones only</option>
-          </select>
-        </div>
-      </div>
+    </div>
+    <div class="ibox" id="meshInfoBox" style="font-size:0.62rem;color:var(--text-dim);line-height:1.7;">—</div>
     <div class="fld" style="margin-top:6px;">
       <label>Rebar estimate allowance (%) <span style="font-weight:400;font-size:0.6rem;color:var(--text-dim)">— laps, links, wastage</span></label>
       <input type="number" id="rebarAllow" value="0" step="5" min="0" max="100" oninput="rebarInputsChanged()">
@@ -1125,15 +1165,17 @@
   <button class="run-btn" id="runBtn" onclick="runFEM()">▶ RUN ANALYSIS</button>
 
   <!-- Long-term deflection — hidden until initial analysis is complete -->
-  <div id="ltSec" style="display:none;border-top:2px solid var(--gold);margin-top:8px;">
+  <div id="ltSec" style="border-top:2px solid var(--gold);margin-top:8px;">
     <div class="sec" style="border-top:none;padding-top:12px;">
-      <div class="sec-t" style="color:var(--gold);">Long-Term Deflection — EC2</div>
+      <div class="sec-t" style="color:var(--gold);">Long-Term Deflection — EC2 7.4.3</div>
       <div style="font-size:0.6rem;color:var(--text-dim);margin-bottom:8px;line-height:1.6;">
-        Eq. 7.18/7.19 · Creep + cracking · Separate re-analysis
+        Creep, cracking (ζ, Eq. 7.18/7.19) and shrinkage curvature (Eq. 7.21) on the analysed model,
+        using the <strong>provided</strong> reinforcement.
       </div>
+      <label class="chk"><input type="checkbox" id="ltAuto" checked> Update with every analysis run</label>
       <div class="row2">
         <div class="fld">
-          <label>Rel. Humidity RH (%)</label>
+          <label>Rel. humidity RH (%)</label>
           <input type="number" id="ltRH" value="50" step="5" min="20" max="100" oninput="ltUpdateCreep()">
         </div>
         <div class="fld">
@@ -1143,35 +1185,43 @@
       </div>
       <div class="row2">
         <div class="fld">
-          <label>Creep φ(∞,t₀) <span style="font-size:0.58rem;font-weight:400">EC2 Annex B</span></label>
-          <input type="number" id="ltCreep" value="2.5" step="0.1" min="0" max="10"
-                 title="Auto-calculated from RH and t₀ — override if needed">
+          <label>Creep φ(∞,t₀)</label>
+          <input type="number" id="ltCreep" value="2.5" step="0.1" min="0" max="10" oninput="ltManual('ltCreep')"
+                 title="EC2 Annex B value; type to override">
+          <div class="hint" id="ltCreepHint"></div>
         </div>
         <div class="fld">
-          <label>β <span style="font-size:0.58rem;font-weight:400">(0.5 long-term)</span></label>
+          <label>β <span style="font-size:0.58rem;font-weight:400">(Eq. 7.19, 0.5 sustained)</span></label>
           <input type="number" id="ltBeta" value="0.5" step="0.1" min="0" max="1">
         </div>
       </div>
-      <!-- Quasi-permanent load combination (BS EN 1990 Eq. 6.16b) -->
-      <div style="font-family:Arial,sans-serif;font-weight:700;font-size:0.6rem;letter-spacing:1px;text-transform:uppercase;color:var(--text-dim);margin-top:8px;margin-bottom:4px;">
-        Quasi-Permanent Combination <span style="font-size:0.58rem;font-weight:400;text-transform:none;letter-spacing:0;">(BS EN 1990 Eq. 6.16b)</span>
-      </div>
-      <div style="font-size:0.58rem;color:var(--text-dim);margin-bottom:6px;line-height:1.6;">
-        G<sub>k</sub> (DL+SIDL+FL) &times; 1.0 &nbsp;+&nbsp; &psi;<sub>2</sub> &times; Q<sub>k</sub> (IL)
-      </div>
-      <div class="fld">
-        <label>&psi;<sub>2</sub> <span style="font-size:0.58rem;font-weight:400">(quasi-permanent factor &mdash; IL &amp; FL)</span></label>
-        <input type="number" id="ltPsi2" value="0.3" step="0.05" min="0" max="1"
-               title="BS EN 1990 Table A1.1: offices 0.3, residential 0.3, storage 0.8, roofs 0.0">
-        <div style="font-size:0.56rem;color:var(--text-dim);margin-top:2px;">
-          Offices / residential: 0.3 &nbsp;&middot;&nbsp; Storage: 0.8 &nbsp;&middot;&nbsp; Roof: 0.0
+      <div class="row2">
+        <div class="fld">
+          <label>Shrinkage ε<sub>cs</sub> (‰)</label>
+          <input type="number" id="ltCs" value="0.4" step="0.01" min="0" max="2" oninput="ltManual('ltCs')"
+                 title="EC2 §3.1.4 value; type to override">
+          <div class="hint" id="ltCsHint"></div>
+        </div>
+        <div class="fld">
+          <label>&psi;<sub>2</sub> <span style="font-size:0.58rem;font-weight:400">(on IL)</span></label>
+          <input type="number" id="ltPsi2" value="0.3" step="0.05" min="0" max="1"
+                 title="BS EN 1990 Table A1.1: offices 0.3, residential 0.3, storage 0.8, roofs 0.0">
+          <div class="hint">Office/resi 0.3 · storage 0.8 · roof 0</div>
         </div>
       </div>
-      <div style="font-size:0.58rem;color:var(--text-dim);margin:4px 0 6px;line-height:1.5;">
-        Section stiffness uses the <strong>provided</strong> reinforcement (base mesh + zoned additional bars,
-        incl. deflection bars in sagging zones) set in <em>Reinforcement Design</em>.
+      <label class="chk"><input type="checkbox" id="ltCsOn" checked> Include shrinkage curvature (Eq. 7.21)</label>
+      <div class="fld">
+        <label>Cracking extent (ζ) from</label>
+        <select id="ltZetaComb">
+          <option value="char" selected>Characteristic moments (conservative)</option>
+          <option value="qp">Quasi-permanent moments</option>
+        </select>
       </div>
-      <div class="ibox" id="ltInfo" style="font-size:0.62rem;color:var(--text-dim);display:none;"></div>
+      <label class="chk"><input type="checkbox" id="ltIter" checked> Iterate cracking (moment redistribution)</label>
+      <div style="font-size:0.58rem;color:var(--text-dim);margin:4px 0 6px;line-height:1.6;">
+        Deflection under G<sub>k</sub> (DL+SIDL+FL) + ψ<sub>2</sub>·Q<sub>k</sub> (IL) — BS EN 1990 Eq. 6.16b.
+      </div>
+      <div class="ibox" id="ltInfo" style="font-size:0.62rem;color:var(--text-dim);display:none;line-height:1.7;"></div>
       <button class="run-btn" id="ltRunBtn" onclick="runLongTerm()"
               style="background:var(--gold);margin-top:8px;">
         ⏱ COMPUTE LONG-TERM DEFLECTION
@@ -1193,51 +1243,14 @@
 
 <!-- ===== MAIN ===== -->
 <div class="main">
-  <select id="mobTabSelect" onchange="mobSwitchTab(this.value)">
-    <option value="mesh">MESH</option>
-    <option value="defl">Deflection (SLS)</option>
-    <option value="ltdefl">LT Deflection (EC2)</option>
-    <option value="icrIu">Icr/Iu Ratio (EC2)</option>
-    <option value="mx">Mx (ULS)</option>
-    <option value="my">My (ULS)</option>
-    <option value="mxy">Mxy (ULS)</option>
-    <option value="vx">Vx (ULS)</option>
-    <option value="vy">Vy (ULS)</option>
-    <option value="wamxb">Mx* Sagging</option>
-    <option value="wamyb">My* Sagging</option>
-    <option value="wamxt">Mx* Hogging</option>
-    <option value="wamyt">My* Hogging</option>
-    <option value="asxb">As,x Bottom</option>
-    <option value="asyb">As,y Bottom</option>
-    <option value="asxt">As,x Top</option>
-    <option value="asyt">As,y Top</option>
-    <option value="rebar">Rebar Check &amp; Estimate</option>
-    <option value="react">Col Reactions</option>
-    <option value="table">Data Table</option>
-  </select>
-  <div class="tabs" id="tabRow">
-    <div class="tab on"  data-p="mesh"        onclick="showTab(this)">MESH</div>
-    <div class="tab"     data-p="defl"        onclick="showTab(this)">Deflection <small style="font-size:0.5rem">SLS</small></div>
-    <div class="tab"     data-p="ltdefl"      onclick="showTab(this)" id="tab-ltdefl">LT Deflection <small style="font-size:0.5rem">EC2</small></div>
-    <div class="tab"     data-p="icrIu"       onclick="showTab(this)" id="tab-icrIu">Icr/Iu <small style="font-size:0.5rem">EC2</small></div>
-    <div class="tab"     data-p="mx"          onclick="showTab(this)">Mx <small style="font-size:0.5rem">ULS</small></div>
-    <div class="tab"     data-p="my"          onclick="showTab(this)">My <small style="font-size:0.5rem">ULS</small></div>
-    <div class="tab"     data-p="mxy"         onclick="showTab(this)">Mxy <small style="font-size:0.5rem">ULS</small></div>
-    <div class="tab"     data-p="vx"          onclick="showTab(this)">Vx <small style="font-size:0.5rem">ULS</small></div>
-    <div class="tab"     data-p="vy"          onclick="showTab(this)">Vy <small style="font-size:0.5rem">ULS</small></div>
-    <div class="tab"     data-p="wamxb"       onclick="showTab(this)">Mx* Sag <small style="font-size:0.5rem">W-A</small></div>
-    <div class="tab"     data-p="wamyb"       onclick="showTab(this)">My* Sag <small style="font-size:0.5rem">W-A</small></div>
-    <div class="tab"     data-p="wamxt"       onclick="showTab(this)">Mx* Hog <small style="font-size:0.5rem">W-A</small></div>
-    <div class="tab"     data-p="wamyt"       onclick="showTab(this)">My* Hog <small style="font-size:0.5rem">W-A</small></div>
-    <div class="tab"     data-p="asxb"  onclick="showTab(this)">As,x Bot <small style="font-size:0.5rem">EC2</small></div>
-    <div class="tab"     data-p="asyb"  onclick="showTab(this)">As,y Bot <small style="font-size:0.5rem">EC2</small></div>
-    <div class="tab"     data-p="asxt"  onclick="showTab(this)">As,x Top <small style="font-size:0.5rem">EC2</small></div>
-    <div class="tab"     data-p="asyt"  onclick="showTab(this)">As,y Top <small style="font-size:0.5rem">EC2</small></div>
-    <div class="tab"     data-p="rebar"       onclick="showTab(this)">REBAR <small style="font-size:0.5rem">EC2</small></div>
-    <div class="tab"     data-p="react"       onclick="showTab(this)">COL REACTIONS</div>
-    <div class="tab"     data-p="table"       onclick="showTab(this)">DATA TABLE</div>
+  <select id="mobTabSelect" onchange="showPanel(this.value)" aria-label="Result view"></select>
+  <!-- Result views: groups (top row) and the views within the active group -->
+  <div class="navwrap">
+    <div class="navg" id="navGroups" role="tablist" aria-label="Result groups"></div>
+    <div class="navs" id="navSubs"></div>
   </div>
-
+  <div id="staleBanner">⚠ Inputs have changed since the last run — results below are out of date.
+    <button onclick="runFEM()">RUN ANALYSIS</button></div>
   <div class="varea">
     <!-- View mode toolbar -->
     <div class="view-toolbar" id="viewToolbar" style="display:none">
@@ -1294,16 +1307,16 @@
         <div class="prog-phase" id="ltltxt" style="color:var(--gold);">INITIALISING</div>
         <div class="prog-steps">
           <div class="prog-step" id="ltstep-zeta">
-            <div class="prog-step-dot"></div><span>Computing cracking factor ζ (Eq. 7.19)</span>
+            <div class="prog-step-dot"></div><span>Cracking ζ per element & direction (Eq. 7.19)</span>
           </div>
           <div class="prog-step" id="ltstep-assemble">
-            <div class="prog-step-dot"></div><span>Assembling variable-stiffness K</span>
+            <div class="prog-step-dot"></div><span>Assembling cracked (orthotropic) stiffness</span>
           </div>
           <div class="prog-step" id="ltstep-ldlt">
-            <div class="prog-step-dot"></div><span>LDLT factorisation</span>
+            <div class="prog-step-dot"></div><span>LDLT factorisation (per iteration)</span>
           </div>
           <div class="prog-step" id="ltstep-solve">
-            <div class="prog-step-dot"></div><span>Solving long-term deflection</span>
+            <div class="prog-step-dot"></div><span>Redistribution, QP load + shrinkage</span>
           </div>
           <div class="prog-step" id="ltstep-render">
             <div class="prog-step-dot"></div><span>Rendering result</span>
@@ -1409,6 +1422,16 @@
       </div>
     </div>
 
+    <!-- Provided reinforcement plans -->
+    <div class="vpanel" id="p-pvxb"><div class="cwrap"><canvas id="cvPvxb"></canvas>
+      <div class="statmsg" id="sm-pvxb"><div class="ico">🔩</div><p>NO RESULTS YET</p></div></div></div>
+    <div class="vpanel" id="p-pvyb"><div class="cwrap"><canvas id="cvPvyb"></canvas>
+      <div class="statmsg" id="sm-pvyb"><div class="ico">🔩</div><p>NO RESULTS YET</p></div></div></div>
+    <div class="vpanel" id="p-pvxt"><div class="cwrap"><canvas id="cvPvxt"></canvas>
+      <div class="statmsg" id="sm-pvxt"><div class="ico">🔩</div><p>NO RESULTS YET</p></div></div></div>
+    <div class="vpanel" id="p-pvyt"><div class="cwrap"><canvas id="cvPvyt"></canvas>
+      <div class="statmsg" id="sm-pvyt"><div class="ico">🔩</div><p>NO RESULTS YET</p></div></div></div>
+
     <!-- Reinforcement check (EC2 As,min / As,max) and quantity estimate -->
     <div class="vpanel" id="p-rebar">
       <div class="twrap">
@@ -1503,6 +1526,8 @@ let gBC='ssss';
 let gLC='dl';                          // active load-case tab: 'dl'|'sidl'|'il'
 let gLoadType={dl:'udl',sidl:'udl',il:'udl',fl:'fl'}; // FL uses combined fl type
 let gRes=null;    // last analysis result
+let gRunSeq=0;    // increments on every analysis run (results carry r.seq)
+let gResultsStale=false;
 let gViewMode='2d';
 let gDeformMode='deform';
 let gCamAz=225, gCamEl=35;  // 3D camera angles (degrees) // 'flat' | 'deform'  (only relevant on deflection tab)
@@ -1567,6 +1592,8 @@ function calcSW(){
   const qEl=document.getElementById('dl-qval');
   if(qEl) qEl.value=sw.toFixed(3);
   updateRebarInfo();
+  ltUpdateCreep();      // creep & shrinkage depend on h and fck
+  rebarMeshInfo();
 }
 
 function updateRebarInfo(){
@@ -1638,6 +1665,92 @@ function calcAsreq(M_kNm_per_m, h_mm, cnom_mm, phi_mm, fck_MPa){
   return As;  // mm²/m
 }
 
+// Number from an input, falling back only when the field is empty/invalid
+// (a typed 0 is a valid value — e.g. creep φ = 0 or ψ₂ = 0 for roofs).
+function numIn(id,def){
+  const e=document.getElementById(id); if(!e) return def;
+  const x=parseFloat(e.value); return Number.isFinite(x)?x:def;
+}
+
+/* ================================================================
+   REINFORCEMENT DESIGN (EC2) — from the stored ULS Wood-Armer moments
+   Re-run whenever cover or bar size change: the moments do not depend on d,
+   so no re-analysis is needed. Uses the analysed thickness and fck.
+   ================================================================ */
+function designRebar(r){
+  const nn=r.nn, h_mm=r.h_mm, fck_MPa=r.fck_MPa;
+  const cnom_mm=numIn('cnom',30), phi_mm=numIn('phi',16);
+  const As_xbot=new Float64Array(nn), As_ybot=new Float64Array(nn);
+  const As_xtop=new Float64Array(nn), As_ytop=new Float64Array(nn);
+  for(let i=0;i<nn;i++){
+    As_xbot[i]=calcAsreq(r.WA_Mx_bot[i], h_mm, cnom_mm, phi_mm, fck_MPa);
+    As_ybot[i]=calcAsreq(r.WA_My_bot[i], h_mm, cnom_mm, phi_mm, fck_MPa);
+    As_xtop[i]=calcAsreq(r.WA_Mx_top[i], h_mm, cnom_mm, phi_mm, fck_MPa);
+    As_ytop[i]=calcAsreq(r.WA_My_top[i], h_mm, cnom_mm, phi_mm, fck_MPa);
+  }
+  // ── Minimum / maximum reinforcement check — BS EN 1992-1-1 ──────────────
+  const rlim=ec2RebarLimits(h_mm, cnom_mm, phi_mm, fck_MPa);
+  // Bottom (sagging) steel: As,min provided throughout the slab.
+  // Top (hogging) steel: As,min applies wherever a hogging demand exists.
+  const As_xbot_d=new Float64Array(nn), As_ybot_d=new Float64Array(nn);
+  const As_xtop_d=new Float64Array(nn), As_ytop_d=new Float64Array(nn);
+  const layerDefs=[
+    {key:'xbot',name:'Bottom X',req:As_xbot,des:As_xbot_d,M:r.WA_Mx_bot,bottom:true},
+    {key:'ybot',name:'Bottom Y',req:As_ybot,des:As_ybot_d,M:r.WA_My_bot,bottom:true},
+    {key:'xtop',name:'Top X',   req:As_xtop,des:As_xtop_d,M:r.WA_Mx_top,bottom:false},
+    {key:'ytop',name:'Top Y',   req:As_ytop,des:As_ytop_d,M:r.WA_My_top,bottom:false},
+  ];
+  const rcCheck={limits:rlim, layers:[], nNodes:0, nKexceed:0, nAsMaxExceed:0};
+  const d_mm=rlim.d, act=r.nodeActive;
+  for(let i=0;i<nn;i++) if(act[i]) rcCheck.nNodes++;
+  for(const L of layerDefs){
+    let maxReq=0, nTension=0, nMinGov=0, nK=0, nMax=0;
+    for(let i=0;i<nn;i++){
+      if(!act[i]) continue;
+      const req=L.req[i];
+      const inTension=L.bottom || req>0;
+      L.des[i]=inTension ? Math.max(req, rlim.AsMin) : 0;
+      if(req>maxReq) maxReq=req;
+      if(inTension){ nTension++; if(req<rlim.AsMin) nMinGov++; }
+      if(req>rlim.AsMax) nMax++;
+      const k=d_mm>0 ? L.M[i]*1e6/(1000*d_mm*d_mm*fck_MPa) : Infinity;
+      if(L.M[i]>0 && k>EC2_K_LIM) nK++;
+    }
+    rcCheck.layers.push({key:L.key,name:L.name,maxReq,nTension,nMinGov,nKexceed:nK,nAsMaxExceed:nMax,
+      maxDes:Math.max(maxReq, nTension?rlim.AsMin:0)});
+    rcCheck.nKexceed+=nK; rcCheck.nAsMaxExceed+=nMax;
+  }
+  // ── Theoretical quantity (As exactly as required, for comparison) ───────
+  // Integrate As (mm²/m ≡ 1e-6 m³ of steel per m² of slab) over every active
+  // element, using the mean of its four corner values.
+  const m=r.model, elArea=r.elArea;
+  let slabArea=0;
+  const layerVol={xbot:0,ybot:0,xtop:0,ytop:0}, layerVolReq={xbot:0,ybot:0,xtop:0,ytop:0};
+  for(let i=0;i<m.nEl;i++){
+    const A=elArea[m.elE[i]]; slabArea+=A;
+    const n0=m.elN[4*i],n1=m.elN[4*i+1],n2=m.elN[4*i+2],n3=m.elN[4*i+3];
+    for(const L of layerDefs){
+      layerVol[L.key]   +=A*(L.des[n0]+L.des[n1]+L.des[n2]+L.des[n3])/4*1e-6;
+      layerVolReq[L.key]+=A*(L.req[n0]+L.req[n1]+L.req[n2]+L.req[n3])/4*1e-6;
+    }
+  }
+  const concVol=slabArea*h_mm/1000;
+  const rebarEst={slabArea, concVol, h_mm, density:STEEL_DENSITY, layers:{}, mass:0, massReq:0};
+  for(const L of layerDefs){
+    const mm=layerVol[L.key]*STEEL_DENSITY, mr=layerVolReq[L.key]*STEEL_DENSITY;
+    rebarEst.layers[L.key]={name:L.name, mass:mm, massReq:mr,
+      avgAs: slabArea>0 ? layerVol[L.key]/slabArea*1e6 : 0};
+    rebarEst.mass+=mm; rebarEst.massReq+=mr;
+  }
+  rebarEst.kgPerM3   = concVol>0 ? rebarEst.mass/concVol : 0;
+  rebarEst.kgPerM3Req= concVol>0 ? rebarEst.massReq/concVol : 0;
+  rebarEst.kgPerM2   = slabArea>0 ? rebarEst.mass/slabArea : 0;
+  Object.assign(r,{cnom_mm,phi_mm,As_xbot,As_ybot,As_xtop,As_ytop,
+    As_xbot_d,As_ybot_d,As_xtop_d,As_ytop_d,rcCheck,rebarEst});
+  r.prov=computeProvidedRebar(r);
+  return r;
+}
+
 /* ================================================================
    PROVIDED REINFORCEMENT — practical bar layout
    Base mesh on both faces + additional bars rationalised into zones
@@ -1647,14 +1760,16 @@ function calcAsreq(M_kNm_per_m, h_mm, cnom_mm, phi_mm, fck_MPa){
    where strength needs more, the larger arrangement is provided.
    ================================================================ */
 const ADD_BAR_SIZES=[10,12,16,20,25,32];
+const MESH_BAR_SIZES=[8,10,12,16,20,25];
 function barAs(phi,s){ return Math.PI*phi*phi/4*1000/s; }   // mm²/m
 function barLbl(b){ return b?`H${b.phi}@${Math.round(b.s)}`:'—'; }
 // Smallest standard arrangement giving at least `need` mm²/m. Spacings tie in
-// with the mesh: at the mesh spacing, or half of it (bars between mesh bars).
+// with the mesh: at the mesh spacing, or half of it (bars between mesh bars),
+// never closer than 100 mm.
 function pickAddBar(need, sMesh){
   if(!(need>1e-6)) return null;
-  const sps=[sMesh, sMesh/2].filter(sp=>sp>=75);
-  if(!sps.length) sps.push(75);
+  const sps=[sMesh, sMesh/2].filter(sp=>sp>=100);
+  if(!sps.length) sps.push(Math.max(100,sMesh));
   let best=null;
   for(const phi of ADD_BAR_SIZES) for(const sp of sps){
     const a=barAs(phi,sp);
@@ -1663,6 +1778,37 @@ function pickAddBar(need, sMesh){
   }
   if(!best){ const sp=Math.min(...sps); best={phi:32,s:sp,As:barAs(32,sp),insufficient:true}; }
   return best;
+}
+// Base mesh: a fixed bar, or 'auto' = lightest bar at the mesh spacing that meets As,min
+function chooseMesh(sel, s, AsMin){
+  if(sel!=='auto') return {phi:+sel||12, s, As:barAs(+sel||12,s), auto:false};
+  for(const phi of MESH_BAR_SIZES){ const a=barAs(phi,s); if(a+1e-9>=AsMin) return {phi,s,As:a,auto:true}; }
+  const phi=MESH_BAR_SIZES[MESH_BAR_SIZES.length-1];
+  return {phi,s,As:barAs(phi,s),auto:true};
+}
+// Limit the number of distinct additional-bar arrangements in a layer: each
+// zone is rounded up to the next arrangement in the chosen set, choosing the
+// set (always incl. the heaviest) that minimises total steel. Exact DP.
+function rationaliseBars(items, maxTypes){
+  // items: [{key, bar, area}] (one per distinct arrangement) → Map key → bar
+  const out=new Map();
+  if(!maxTypes || items.length<=maxTypes){ items.forEach(it=>out.set(it.key,it.bar)); return out; }
+  const A=items.slice().sort((a,b)=>a.bar.As-b.bar.As || b.bar.s-a.bar.s);
+  const m=A.length, W=[0]; for(let j=0;j<m;j++) W.push(W[j]+A[j].area);
+  // best[t][i]: min steel for arrangements 0..i with t chosen, i chosen (i = top of its group)
+  const best=[], from=[];
+  for(let t=0;t<=maxTypes;t++){ best.push(new Array(m).fill(Infinity)); from.push(new Array(m).fill(-1)); }
+  for(let i=0;i<m;i++) best[1][i]=A[i].bar.As*W[i+1];
+  for(let t=2;t<=maxTypes;t++) for(let i=0;i<m;i++) for(let p=0;p<i;p++){
+    const c=best[t-1][p]+A[i].bar.As*(W[i+1]-W[p+1]);
+    if(c<best[t][i]){ best[t][i]=c; from[t][i]=p; }
+  }
+  let bt=1; for(let t=1;t<=maxTypes;t++) if(best[t][m-1]<best[bt][m-1]) bt=t;
+  const chosen=[]; for(let i=m-1,t=bt;i>=0&&t>=1;){ chosen.push(i); i=from[t][i]; t--; }
+  chosen.sort((a,b)=>a-b);
+  let c=0;
+  for(let j=0;j<m;j++){ while(chosen[c]<j) c++; out.set(A[j].key, A[chosen[c]].bar); }
+  return out;
 }
 // Zone boundaries along one axis: follow bay grid lines in column mode
 function rebarZoneEdges(r, axis, z){
@@ -1675,32 +1821,29 @@ function rebarZoneEdges(r, axis, z){
   }
   return Float64Array.from(e);
 }
-function rebarInputsChanged(){
-  ltUpdateMatAs();
-  if(gRes&&gRes.elArea) renderRebarSummary(gRes);
-}
 function computeProvidedRebar(r){
   if(!r||!r.elArea||!r.As_xbot) return null;
   const nx=r.nx, ny=r.ny, nid=(i,j)=>j*(nx+1)+i;
   const g=id=>document.getElementById(id);
-  const meshPhi=+(g('ltMatPhi')||{value:12}).value||12;
-  const meshS  =+(g('ltMatSpacing')||{value:200}).value||200;
-  const sagPhi =+(g('ltSagPhi')||{value:0}).value||0;
-  const sagS   =+(g('ltSagSpacing')||{value:200}).value||200;
-  const z      =Math.max(0.25,+(g('rbZone')||{value:1}).value||1);
+  const meshSel=(g('ltMatPhi')||{value:'auto'}).value;
+  const meshS  =Math.max(50,numIn('ltMatSpacing',200));
+  const sagPhi =numIn('ltSagPhi',0);
+  const sagS   =Math.max(50,numIn('ltSagSpacing',200));
+  const z      =Math.max(0.25,numIn('rbZone',1));
   const topAll =((g('rbTopMesh')||{value:'all'}).value)!=='hog';
+  const maxTypes=numIn('rbMaxTypes',3);          // 0 = no limit
   const AsMin  =r.rcCheck.limits.AsMin;
-  const mesh={phi:meshPhi,s:meshS,As:barAs(meshPhi,meshS)};
+  const mesh=chooseMesh(meshSel, meshS, AsMin);
   const sag =sagPhi>0?{phi:sagPhi,s:sagS,As:barAs(sagPhi,sagS)}:null;
 
   const ex_=rebarZoneEdges(r,'x',z), ey_=rebarZoneEdges(r,'y',z);
   const nzx=ex_.length-1, nzy=ey_.length-1, nz=nzx*nzy;
-  // element → zone
-  const zoneOf=new Int32Array(nx*ny).fill(-1);
+  // element → zone, zone plan areas
+  const zoneOf=new Int32Array(nx*ny).fill(-1), zArea=new Float64Array(nz);
   for(let ey=0;ey<ny;ey++) for(let ex=0;ex<nx;ex++){
     const e=ey*nx+ex; if(!(r.elArea[e]>0)) continue;
     const zx=gCell(ex_,0.5*(r.gx[ex]+r.gx[ex+1])).e, zy=gCell(ey_,0.5*(r.gy[ey]+r.gy[ey+1])).e;
-    zoneOf[e]=zy*nzx+zx;
+    zoneOf[e]=zy*nzx+zx; zArea[zy*nzx+zx]+=r.elArea[e];
   }
   const defs=[
     {key:'xbot',name:'Bottom X',req:r.As_xbot,M:r.Mx_sls,bottom:true},
@@ -1708,10 +1851,10 @@ function computeProvidedRebar(r){
     {key:'xtop',name:'Top X',   req:r.As_xtop,bottom:false},
     {key:'ytop',name:'Top Y',   req:r.As_ytop,bottom:false},
   ];
-  const out={mesh,sag,z,topAll,zoneEdgesX:ex_,zoneEdgesY:ey_,zoneOf,layers:{},warnings:[]};
+  const out={mesh,sag,z,topAll,maxTypes,zoneEdgesX:ex_,zoneEdgesY:ey_,nzx,nzy,zoneOf,layers:{},warnings:[]};
   const lim=r.rcCheck.limits;
   if(meshS>lim.sMaxMain) out.warnings.push(`Base mesh spacing ${meshS} mm exceeds s<sub>max</sub> = ${lim.sMaxMain} mm (§9.3.1.1(3)).`);
-  if(mesh.As<AsMin) out.warnings.push(`Base mesh ${barLbl(mesh)} (${mesh.As.toFixed(0)} mm²/m) is below A<sub>s,min</sub> = ${AsMin.toFixed(0)} mm²/m — additional bars are added throughout to make up A<sub>s,min</sub>; a heavier mesh is likely more economic.`);
+  if(mesh.As+1e-9<AsMin) out.warnings.push(`Base mesh ${barLbl(mesh)} (${mesh.As.toFixed(0)} mm²/m) is below A<sub>s,min</sub> = ${AsMin.toFixed(0)} mm²/m — additional bars are added throughout to make up A<sub>s,min</sub>; a heavier mesh is likely more economic.`);
 
   for(const L of defs){
     // Zone envelopes over every node of every element in the zone
@@ -1726,16 +1869,32 @@ function computeProvidedRebar(r){
         if(L.bottom && L.M && L.M[n]<0) sagZ[zi]=1;   // FEM convention: M<0 = sagging
       }
     }
-    const zBase=new Float64Array(nz), zAdd=new Array(nz).fill(null), zSrc=new Array(nz).fill('');
+    // 1) smallest strength arrangement per zone
+    const zBase=new Float64Array(nz), zStr=new Array(nz).fill(null), zAdd=new Array(nz).fill(null), zSrc=new Array(nz).fill('');
+    for(let zi=0;zi<nz;zi++){
+      if(!(zArea[zi]>0)) continue;
+      zBase[zi]=(L.bottom||topAll||hasHog[zi]) ? mesh.As : 0;
+      zStr[zi]=pickAddBar(need[zi]-zBase[zi], meshS);
+    }
+    // 2) rationalise strength arrangements (zones governed by deflection bars excluded)
+    const useSag=zi=>L.bottom && sag && sagZ[zi] && (!zStr[zi] || sag.As>=zStr[zi].As);
+    const groups=new Map();
+    for(let zi=0;zi<nz;zi++){
+      if(!zStr[zi] || useSag(zi)) continue;
+      const k=barLbl(zStr[zi]); const it=groups.get(k)||{key:k,bar:zStr[zi],area:0};
+      it.area+=zArea[zi]; groups.set(k,it);
+    }
+    const nTypesRaw=groups.size;
+    const remap=rationaliseBars([...groups.values()], maxTypes);
+    // 3) final arrangement per zone
     let nInsuf=0;
     for(let zi=0;zi<nz;zi++){
-      const base=(L.bottom||topAll||hasHog[zi]) ? mesh.As : 0;
-      zBase[zi]=base;
-      let add=null, src='';
-      const strength=pickAddBar(need[zi]-base, meshS);
-      if(strength){ add=strength; src='strength'; if(strength.insufficient) nInsuf++; }
-      if(L.bottom && sag && sagZ[zi] && (!add || sag.As>add.As)){ add=sag; src='deflection'; }
-      zAdd[zi]=add; zSrc[zi]=src;
+      if(!(zArea[zi]>0)) continue;
+      if(useSag(zi)){ zAdd[zi]=sag; zSrc[zi]='deflection'; continue; }
+      if(zStr[zi]){
+        const b=remap.get(barLbl(zStr[zi]))||zStr[zi];
+        zAdd[zi]=b; zSrc[zi]='strength'; if(b.insufficient) nInsuf++;
+      }
     }
     // Per-element provided As, per-node (max of adjacent elements), schedule
     const elAs=new Float64Array(nx*ny), nodeAs=new Float64Array(r.nn);
@@ -1753,7 +1912,7 @@ function computeProvidedRebar(r){
       }
       for(const n of [nid(ex,ey),nid(ex+1,ey),nid(ex+1,ey+1),nid(ex,ey+1)]) if(As>nodeAs[n]) nodeAs[n]=As;
     }
-    out.layers[L.key]={name:L.name,elAs,nodeAs,zAdd,zSrc,zBase,meshArea,
+    out.layers[L.key]={name:L.name,elAs,nodeAs,zAdd,zSrc,zBase,meshArea,nTypesRaw,
       schedule:[...sched.values()].sort((a,b)=>b.bar.As-a.bar.As||b.area-a.area),
       mass:vol*STEEL_DENSITY, nInsuf};
     if(nInsuf) out.warnings.push(`${L.name}: ${nInsuf} zone(s) need more than H32 at the closest spacing — increase slab depth or detail locally.`);
@@ -1767,6 +1926,7 @@ function computeProvidedRebar(r){
 }
 
 function setMode(m){
+  if(gRes && m!==gMode) markResultsStale();
   gMode=m;
   document.getElementById('edgePanel').style.display =m==='edge'?'block':'none';
   document.getElementById('colPanel').style.display  =m==='column'?'block':'none';
@@ -1780,6 +1940,7 @@ function setMode(m){
 
 function selBC(btn){
   document.querySelectorAll('.bcbtn').forEach(b=>b.classList.remove('on'));
+  if(gRes && btn.dataset.bc!==gBC) markResultsStale();
   btn.classList.add('on'); gBC=btn.dataset.bc;
   document.getElementById('bcDesc').textContent=BC_DESC[gBC];
 }
@@ -1797,6 +1958,7 @@ function selLoad(btn, lc){
   const panel=document.getElementById('lc-'+lc);
   panel.querySelectorAll('.lbtn').forEach(b=>b.classList.remove('on'));
   btn.classList.add('on');
+  if(gRes && gLoadType[lc]!==btn.dataset.lt) markResultsStale();
   gLoadType[lc]=btn.dataset.lt;
   const lt=btn.dataset.lt;
   const lb={udl:'UDL q (kN/m²)',central:'Point Load P (kN)',patch:'Patch Load q (kN/m²)',line:'Line Load (kN/m)',perimeter:'Perimeter Load (kN/m)'};
@@ -1810,22 +1972,76 @@ function selLoad(btn, lc){
 // Helper: read load input value for a given load case
 function lcv(lc, field){ return +document.getElementById(lc+'-'+field).value; }
 
-function showTab(el){
-  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('on'));
-  document.querySelectorAll('.vpanel').forEach(p=>p.classList.remove('on'));
-  el.classList.add('on');
-  gCurrentTab=el.dataset.p;
-  document.getElementById('p-'+gCurrentTab).classList.add('on');
+/* ── Result navigation: groups → views (each view is a .vpanel p-<id>) ── */
+const NAV=[
+  {g:'model',  label:'Model',            items:[{p:'mesh',l:'Mesh & loads'}]},
+  {g:'defl',   label:'Deflection',       items:[{p:'defl',l:'Short-term',tag:'SLS'},{p:'ltdefl',l:'Long-term',tag:'EC2'},{p:'icrIu',l:'Cracking ζ',tag:'EC2'}]},
+  {g:'forces', label:'Moments & Shears', note:'ULS', items:[{p:'mx',l:'Mx'},{p:'my',l:'My'},{p:'mxy',l:'Mxy'},{p:'vx',l:'Vx'},{p:'vy',l:'Vy'}]},
+  {g:'wa',     label:'Design Moments',   note:'Wood-Armer · ULS', items:[{p:'wamxb',l:'Mx* bottom'},{p:'wamyb',l:'My* bottom'},{p:'wamxt',l:'Mx* top'},{p:'wamyt',l:'My* top'}]},
+  {g:'rebar',  label:'Reinforcement',    items:[{p:'rebar',l:'Summary & estimate'},
+     {sep:'Required'},{p:'asxb',l:'Bottom X'},{p:'asyb',l:'Bottom Y'},{p:'asxt',l:'Top X'},{p:'asyt',l:'Top Y'},
+     {sep:'Provided'},{p:'pvxb',l:'Bottom X'},{p:'pvyb',l:'Bottom Y'},{p:'pvxt',l:'Top X'},{p:'pvyt',l:'Top Y'}]},
+  {g:'tables', label:'Tables',           items:[{p:'react',l:'Column reactions'},{p:'table',l:'Data table'}]},
+];
+const NAV_OF={}; NAV.forEach(gr=>{ let sep=''; gr.items.forEach(it=>{ if(it.sep) sep=it.sep; else NAV_OF[it.p]={g:gr.g,sep,l:it.l}; }); });
+const _navLast={};
+function buildNav(){
+  const G=document.getElementById('navGroups'), S=document.getElementById('navSubs'), sel=document.getElementById('mobTabSelect');
+  if(!G||!S) return;
+  G.innerHTML=NAV.map(gr=>`<button class="navg-btn" role="tab" data-g="${gr.g}" onclick="showGroup('${gr.g}')">${gr.label}</button>`).join('');
+  S.innerHTML=NAV.map(gr=>`<div class="navs-grp" data-g="${gr.g}" style="display:none">`+
+    gr.items.map(it=>it.sep?`<span class="navsep">${it.sep}</span>`
+      :`<button class="tab" data-p="${it.p}" onclick="showPanel('${it.p}')">${it.l}${it.tag?`<small>${it.tag}</small>`:''}</button>`).join('')+
+    (gr.note?`<span class="navnote">${gr.note}</span>`:'')+`</div>`).join('')+
+    `<span class="navhint" title="Keyboard: ← → views, Shift + ← → groups">← → views · ⇧ groups</span>`;
+  if(sel) sel.innerHTML=NAV.map(gr=>`<optgroup label="${gr.label}">`+
+    gr.items.filter(it=>!it.sep).map(it=>{ const sep=NAV_OF[it.p].sep;
+      return `<option value="${it.p}">${sep?sep+' — ':''}${it.l}${it.tag?' ('+it.tag+')':''}</option>`; }).join('')+`</optgroup>`).join('');
+}
+function showPanel(p){
+  const it=NAV_OF[p]; if(!it) return;
+  gCurrentTab=p; _navLast[it.g]=p;
+  document.querySelectorAll('.navg-btn').forEach(b=>b.classList.toggle('on',b.dataset.g===it.g));
+  document.querySelectorAll('.navs-grp').forEach(d=>d.style.display=d.dataset.g===it.g?'flex':'none');
+  document.querySelectorAll('.navs .tab').forEach(t=>t.classList.toggle('on',t.dataset.p===p));
+  document.querySelectorAll('.vpanel').forEach(v=>v.classList.toggle('on',v.id==='p-'+p));
+  const sel=document.getElementById('mobTabSelect'); if(sel) sel.value=p;
   updateToolbar();
-  // Sync mobile dropdown if present
-  if(typeof _mobSyncTab!=='undefined') _mobSyncTab(gCurrentTab);
   // Redraw after the panel is visible so the canvas has real dimensions
   if(gRes) requestAnimationFrame(()=>requestAnimationFrame(()=>redrawAll()));
 }
+function showGroup(g){
+  const gr=NAV.find(x=>x.g===g); if(!gr) return;
+  showPanel(_navLast[g]||gr.items.find(i=>i.p).p);
+}
+function showTab(el){ if(el&&el.dataset&&el.dataset.p) showPanel(el.dataset.p); }
+// Grey out views that have nothing to show yet
+function updateNavState(){
+  const has={ltdefl:!!(gLTRes&&gRes&&gLTRes.seq===gRes.seq), icrIu:!!(gLTRes&&gRes&&gLTRes.seq===gRes.seq),
+             react:!!(gRes&&gRes.colReact&&gRes.colReact.length)};
+  document.querySelectorAll('.navs .tab').forEach(t=>{
+    const p=t.dataset.p; t.classList.toggle('dim', !gRes || (p in has && !has[p]));
+  });
+}
+// ← → move between views of the current group; Shift+← → between groups
+document.addEventListener('keydown',e=>{
+  if(e.key!=='ArrowLeft'&&e.key!=='ArrowRight') return;
+  const t=e.target, tag=t&&t.tagName;
+  if(tag==='INPUT'||tag==='SELECT'||tag==='TEXTAREA'||(t&&t.isContentEditable)) return;
+  const modal=document.getElementById('custModal'); if(modal&&modal.classList.contains('open')) return;
+  const dir=e.key==='ArrowRight'?1:-1, cur=NAV_OF[gCurrentTab]; if(!cur) return;
+  if(e.shiftKey){
+    const gi=NAV.findIndex(x=>x.g===cur.g); showGroup(NAV[(gi+dir+NAV.length)%NAV.length].g);
+  } else {
+    const views=NAV.find(x=>x.g===cur.g).items.filter(i=>i.p).map(i=>i.p);
+    showPanel(views[(views.indexOf(gCurrentTab)+dir+views.length)%views.length]);
+  }
+  e.preventDefault();
+});
 
 function updateToolbar(){
   const tb=document.getElementById('viewToolbar');
-  const noToolbar=['mesh','react','table','icrIu','rebar'];
+  const noToolbar=['mesh','react','table','icrIu','rebar','pvxb','pvyb','pvxt','pvyt'];
   if(!gRes || noToolbar.includes(gCurrentTab)){
     tb.style.display='none'; return;
   }
@@ -2095,6 +2311,13 @@ let _timerInterval=null;
 function yieldFrame(){
   return new Promise(r=>requestAnimationFrame(()=>setTimeout(r,0)));
 }
+// Inside long loops: yield (one frame, ~16 ms) only after ~50 ms of work, so
+// progress still paints but the solver is not throttled by the frame rate.
+let _yieldT=0;
+async function yieldIfDue(){
+  const t=performance.now();
+  if(t-_yieldT>50){ await yieldFrame(); _yieldT=performance.now(); }
+}
 
 // Update the phase text + bar + pct label
 function setLtxt(msg, pct){
@@ -2156,16 +2379,6 @@ function setLtTxt(msg, pct){
   }
 }
 
-function setStep(name){
-  let reached=false;
-  for(const s of STEPS){
-    const el=document.getElementById('step-'+s);
-    if(!el) continue;
-    if(s===name){ el.className='prog-step active'; reached=true; }
-    else if(!reached){ el.className='prog-step done'; }
-    else { el.className='prog-step'; }
-  }
-}
 
 async function runFEM(){
   const btn=document.getElementById('runBtn');
@@ -2191,17 +2404,25 @@ async function runFEM(){
   await yieldFrame();
   await yieldFrame();
 
+  let ok=false;
   try{
-    gRes=await solveAsync();
+    const res=await solveAsync();
+    res.seq=++gRunSeq;
+    if(res.mode==='custom') res.custSig=custGeomSig();
+    gRes=res;
+    // A long-term result belongs to the run it was computed from — drop it now
+    gLTRes=null;
     setStep('render');
     setLtxt('RENDERING RESULTS', null);
     await yieldFrame();
     display(gRes);
+    setResultsStale(false);
     const elapsed=((performance.now()-t0)/1000).toFixed(2);
     // Mark all steps done
     for(const s of STEPS){ const el=document.getElementById('step-'+s); if(el) el.className='prog-step done'; }
     setLtxt('COMPLETE', 100);
     if(timerEl) timerEl.textContent=elapsed+' s';
+    ok=true;
   } catch(e){
     alert('FEM Error:\n'+e.message);
     console.error(e);
@@ -2209,12 +2430,16 @@ async function runFEM(){
   clearInterval(_timerInterval); _timerInterval=null;
   document.getElementById('lovl').style.display='none';
   btn.disabled=false;
+  // Keep the long-term deflection in step with this run (one click updates everything)
+  showLTResults();
+  if(ok && document.getElementById('ltAuto').checked) await runLongTerm({switchTab:false});
 }
 
 async function solveAsync(){
   const E=+v('E')*1e6, nu=+v('nu'), h=+v('thk')/1000;
   const D=E*h*h*h/(12*(1-nu*nu));
   const G=E/(2*(1+nu)), Ds=5/6*G*h;
+  const DbMain=DbIso(D,nu);
   // ── Load case intensities ────────────────────────────────────────────────
   const qDL   = lcv('dl',  'qval');
   const qSIDL = lcv('sidl','qval');
@@ -2361,25 +2586,9 @@ async function solveAsync(){
 
   // ── Triangle element helpers (use extended nXe/nYe and updated ndof) ──────
   function _addTriToK(n0,n1,n2){
-    const x0=nXe[n0],y0=nYe[n0],x1=nXe[n1],y1=nYe[n1],x2=nXe[n2],y2=nYe[n2];
-    const A2=(x1-x0)*(y2-y0)-(x2-x0)*(y1-y0);
-    const area=Math.abs(A2)*0.5; if(area<1e-14) return;
-    const i2A=1/A2;
-    const bx=[(y1-y2)*i2A,(y2-y0)*i2A,(y0-y1)*i2A];
-    const by=[(x2-x1)*i2A,(x0-x2)*i2A,(x1-x0)*i2A];
-    const Bb=new Float64Array(27);
-    for(let k=0;k<3;k++){Bb[0*9+3*k+1]=bx[k];Bb[1*9+3*k+2]=by[k];Bb[2*9+3*k+1]=by[k];Bb[2*9+3*k+2]=bx[k];}
-    const Db_=[D,D*nu,0,D*nu,D,0,0,0,D*(1-nu)/2];
-    const DbBb=new Float64Array(27);
-    for(let r=0;r<3;r++) for(let cc=0;cc<9;cc++){let s=0;for(let k=0;k<3;k++)s+=Db_[r*3+k]*Bb[k*9+cc];DbBb[r*9+cc]=s;}
-    const ke_=new Float64Array(81);
-    for(let r=0;r<9;r++) for(let cc=0;cc<9;cc++){let s=0;for(let k=0;k<3;k++)s+=Bb[k*9+r]*DbBb[k*9+cc];ke_[r*9+cc]+=s*area;}
-    const Bs=new Float64Array(18);
-    for(let k=0;k<3;k++){Bs[0*9+3*k+0]=bx[k];Bs[0*9+3*k+1]=-1/3;Bs[1*9+3*k+0]=by[k];Bs[1*9+3*k+2]=-1/3;}
-    for(let r=0;r<9;r++) for(let cc=0;cc<9;cc++) ke_[r*9+cc]+=(Bs[0*9+r]*Bs[0*9+cc]+Bs[1*9+r]*Bs[1*9+cc])*Ds*area;
+    const t=keTri(nXe[n0],nYe[n0],nXe[n1],nYe[n1],nXe[n2],nYe[n2],DbMain,Ds); if(!t) return;
     const df=[3*n0,3*n0+1,3*n0+2,3*n1,3*n1+1,3*n1+2,3*n2,3*n2+1,3*n2+2];
-    for(let r=0;r<9;r++) for(let cc=0;cc<9;cc++) K[df[r]*ndof+df[cc]]+=ke_[r*9+cc];
-    for(let r=0;r<9;r++) for(let cc=0;cc<9;cc++) if(r!==cc) adjSet[df[r]].add(df[cc]);
+    for(let r=0;r<9;r++) for(let cc=0;cc<9;cc++) K.add(df[r],df[cc],t.ke[r*9+cc]);
   }
   function _triA(n0,n1,n2){
     return Math.abs((nXe[n1]-nXe[n0])*(nYe[n2]-nYe[n0])-(nXe[n2]-nXe[n0])*(nYe[n1]-nYe[n0]))*0.5;
@@ -2406,31 +2615,14 @@ async function solveAsync(){
   }
 
   // ── Assemble stiffness matrix K (load-independent) ───────────────────────
-  const K=new Float64Array(ndof*ndof);
-  const adjSet=new Array(ndof);
-  for(let i=0;i<ndof;i++) adjSet[i]=new Set();
-  const g2=[-1/Math.sqrt(3),1/Math.sqrt(3)];
+  const K=new SparseK(ndof);           // row-wise sparse global stiffness
+  const g2=G2;
   const totalEls=nx*ny;
   let elDone=0;
   const CHUNK=Math.max(1,Math.floor(totalEls/20)); // yield every ~5%
-  // colNodeRows: CSR for column node rows (used in colReact K·u)
-  const colNodeRows=new Map();
-  if(gMode==='column'&&columns){
-    for(const col of columns){
-      const iC=Math.min(nx,Math.max(0,gIdx(gx,col.x)));
-      const jC=Math.min(ny,Math.max(0,gIdx(gy,col.y)));
-      colNodeRows.set(3*nid(iC,jC), new Map());
-    }
-  }
-  function _addElToColRows(dofs_,ke_,ndofs_){
-    for(let r=0;r<ndofs_;r++){
-      const gi=dofs_[r]; if(!colNodeRows.has(gi)) continue;
-      const rowMap=colNodeRows.get(gi);
-      for(let cc=0;cc<ndofs_;cc++){
-        const gj=dofs_[cc]; rowMap.set(gj,(rowMap.get(gj)||0)+ke_[r*ndofs_+cc]);
-      }
-    }
-  }
+  // Active elements, recorded so the long-term analysis can reassemble the
+  // identical model with cracked (per-element) stiffness.
+  const mElE=[], mElT=[], mElN=[], mElC=[];
 
   for(let ey=0;ey<ny;ey++) for(let ex=0;ex<nx;ex++){
     const _et=elType(ex,ey);
@@ -2443,48 +2635,26 @@ async function solveAsync(){
       const _dfT=[3*_n0,3*_n0+1,3*_n0+2,3*_n1,3*_n1+1,3*_n1+2,
                   3*_n2,3*_n2+1,3*_n2+2,3*_n3,3*_n3+1,3*_n3+2,
                   3*_nc,3*_nc+1,3*_nc+2];
-      for(let r=0;r<15;r++) for(let cc=0;cc<15;cc++) if(r!==cc) adjSet[_dfT[r]].add(_dfT[cc]);
+      for(let r=0;r<15;r++) for(let cc=0;cc<15;cc++) if(r!==cc) K.add(_dfT[r],_dfT[cc],0);
+      mElE.push(ey*nx+ex); mElT.push(1); mElN.push(_n0,_n1,_n2,_n3); mElC.push(_nc);
       elDone++;
-      if(elDone%CHUNK===0||elDone===totalEls){setStep('assemble');setLtxt('ASSEMBLING STIFFNESS MATRIX',elDone/totalEls*100);await yieldFrame();}
+      if(elDone%CHUNK===0||elDone===totalEls){setStep('assemble');setLtxt('ASSEMBLING STIFFNESS MATRIX',elDone/totalEls*100);await yieldIfDue();}
       continue;
     }
     // Interior Q4:
     const ns=[nid(ex,ey),nid(ex+1,ey),nid(ex+1,ey+1),nid(ex,ey+1)];
     const dofs=[]; for(const n of ns) dofs.push(3*n,3*n+1,3*n+2);
-    const ke=new Float64Array(144);
     const{xs,ys}=elXY(ex,ey);
-    for(const xi of g2) for(const eta of g2){
-      const s=shd(xi,eta,xs,ys);
-      const Bb=new Float64Array(36);
-      for(let k=0;k<4;k++){
-        Bb[0*12+3*k+1]=s.dx[k]; Bb[1*12+3*k+2]=s.dy[k];
-        Bb[2*12+3*k+1]=s.dy[k]; Bb[2*12+3*k+2]=s.dx[k];
-      }
-      const Db=[D,D*nu,0,D*nu,D,0,0,0,D*(1-nu)/2];
-      addBb(ke,Bb,Db,s.det);
-    }
-    {
-      const s=shd(0,0,xs,ys);
-      const Bs=new Float64Array(24);
-      for(let k=0;k<4;k++){
-        Bs[0*12+3*k+0]=s.dx[k]; Bs[0*12+3*k+1]=-s.N[k];
-        Bs[1*12+3*k+0]=s.dy[k]; Bs[1*12+3*k+2]=-s.N[k];
-      }
-      addBs(ke,Bs,Ds,s.det*4);
-      const kHG=0.05*Ds*s.det;
-      const hg=[1,-1,1,-1];
-      for(let i=0;i<4;i++) for(let j=0;j<4;j++) ke[3*i*12+3*j]+=kHG*hg[i]*hg[j];
-    }
-    for(let r=0;r<12;r++) for(let c=0;c<12;c++) K[dofs[r]*ndof+dofs[c]]+=ke[r*12+c];
-    for(let r=0;r<12;r++) for(let cc=0;cc<12;cc++) if(r!==cc) adjSet[dofs[r]].add(dofs[cc]);
-    if(colNodeRows.size) _addElToColRows(dofs,ke,12);
+    const ke=keQ4(xs,ys,DbMain,Ds);
+    for(let r=0;r<12;r++) for(let c=0;c<12;c++) K.add(dofs[r],dofs[c],ke[r*12+c]);
+    mElE.push(ey*nx+ex); mElT.push(0); mElN.push(ns[0],ns[1],ns[2],ns[3]); mElC.push(-1);
 
     elDone++;
     if(elDone%CHUNK===0 || elDone===totalEls){
       const pct=elDone/totalEls*100;
       setStep('assemble');
       setLtxt('ASSEMBLING STIFFNESS MATRIX', pct);
-      await yieldFrame();
+      await yieldIfDue();
     }
   }
 
@@ -2696,7 +2866,7 @@ async function solveAsync(){
   // since K[i,i]=0 implies the DOF is uncoupled from the active structure.
   if(custPoly){
     for(let i=0;i<ndof;i++){
-      if(!fixed.has(i) && K[i*ndof+i]===0) fixed.add(i);
+      if(!fixed.has(i) && K.get(i,i)===0) fixed.add(i);
     }
   }
 
@@ -2704,7 +2874,7 @@ async function solveAsync(){
   setStep('ldlt'); setLtxt('LDLT FACTORISATION', 0); await yieldFrame();
   const dec = await ldltDecomp(K,ndof,fixed,(pct)=>{
     setLtxt('LDLT FACTORISATION', pct);
-  },adjSet);
+  });
   const {free,zeroModes}=dec;
 
   setStep('solve'); setLtxt('SOLVING LOAD CASES', null); await yieldFrame();
@@ -2767,26 +2937,11 @@ async function solveAsync(){
     const WA_My_bot=new Float64Array(nn);
     const WA_Mx_top=new Float64Array(nn);
     const WA_My_top=new Float64Array(nn);
+    // Bottom: M* = M − |Mxy| (sagging); top: M* = M + |Mxy| (hogging); see woodArmer()
     for(let i=0;i<nn;i++){
-      const mx=MX[i], my=MY[i], mxy=MXY[i], amxy=Math.abs(mxy);
-
-      // ── Bottom steel (sagging) — negative moment regions ──────────────────
-      // M*x = Mx - |Mxy|,  M*y = My - |Mxy|  (drives more negative)
-      // If M*x turns positive (no bottom steel needed in x): redistribute
-      let mxb=mx-amxy, myb=my-amxy;
-      if(mxb>0){ myb=my-(mxy*mxy)/Math.max(Math.abs(mx),1e-12); mxb=0; }
-      if(myb>0){ mxb=mx-(mxy*mxy)/Math.max(Math.abs(my),1e-12); myb=0; }
-      WA_Mx_bot[i]=Math.abs(Math.min(0, mxb));  // magnitude of sagging demand
-      WA_My_bot[i]=Math.abs(Math.min(0, myb));
-
-      // ── Top steel (hogging) — positive moment regions ─────────────────────
-      // M*x = Mx + |Mxy|,  M*y = My + |Mxy|  (drives more positive)
-      // If M*x turns negative (no top steel needed in x): redistribute
-      let mxt=mx+amxy, myt=my+amxy;
-      if(mxt<0){ myt=my+(mxy*mxy)/Math.max(Math.abs(mx),1e-12); mxt=0; }
-      if(myt<0){ mxt=mx+(mxy*mxy)/Math.max(Math.abs(my),1e-12); myt=0; }
-      WA_Mx_top[i]=Math.max(0, mxt);  // magnitude of hogging demand
-      WA_My_top[i]=Math.max(0, myt);
+      const wa=woodArmer(MX[i],MY[i],MXY[i]);
+      WA_Mx_bot[i]=wa.xb; WA_My_bot[i]=wa.yb;
+      WA_Mx_top[i]=wa.xt; WA_My_top[i]=wa.yt;
     }
     return{MX,MY,MXY,VX,VY,WA_Mx_bot,WA_My_bot,WA_Mx_top,WA_My_top};
   }
@@ -2796,70 +2951,15 @@ async function solveAsync(){
   // SLS results for deflection only (WA not needed for SLS)
   const {MX:MX_sls,MY:MY_sls,MXY:MXY_sls,VX:VX_sls,VY:VY_sls} = postProcess(u_SLS);
 
-  // ── EC2 Reinforcement design from Wood-Armer moments ─────────────────────
-  const h_mm   = +v('thk');
-  const cnom_mm= +(document.getElementById('cnom').value)||30;
-  const phi_mm = +(document.getElementById('phi').value)||16;
-  const fck_MPa= +(document.getElementById('fck').value)||32;
-  // As_*   : As,req from the Wood-Armer moment alone
-  // As_*_d : design As = As,req raised to As,min (BS EN 1992-1-1 §9.3.1.1)
-  const As_xbot=new Float64Array(nn), As_ybot=new Float64Array(nn);
-  const As_xtop=new Float64Array(nn), As_ytop=new Float64Array(nn);
-  for(let i=0;i<nn;i++){
-    As_xbot[i]=calcAsreq(WA_Mx_bot[i], h_mm, cnom_mm, phi_mm, fck_MPa);
-    As_ybot[i]=calcAsreq(WA_My_bot[i], h_mm, cnom_mm, phi_mm, fck_MPa);
-    As_xtop[i]=calcAsreq(WA_Mx_top[i], h_mm, cnom_mm, phi_mm, fck_MPa);
-    As_ytop[i]=calcAsreq(WA_My_top[i], h_mm, cnom_mm, phi_mm, fck_MPa);
-  }
-
-  // ── Minimum / maximum reinforcement check — BS EN 1992-1-1 ────────────────
-  const rlim=ec2RebarLimits(h_mm, cnom_mm, phi_mm, fck_MPa);
-  // Nodes that belong to the slab (at least one active element)
+  // ── Slab extent: active nodes and element plan areas ─────────────────────
+  // (reinforcement design and quantities are computed by designRebar(r), so a
+  //  change of cover or bar size updates them without re-running the analysis)
   const nodeActive=new Uint8Array(nn);
-  for(let ey=0;ey<ny;ey++) for(let ex=0;ex<nx;ex++){
-    if(elType(ex,ey)==='outside') continue;
-    nodeActive[nid(ex,ey)]=nodeActive[nid(ex+1,ey)]=nodeActive[nid(ex+1,ey+1)]=nodeActive[nid(ex,ey+1)]=1;
-  }
-  // Bottom (sagging) steel: As,min provided throughout the slab.
-  // Top (hogging) steel: As,min applies wherever a hogging demand exists.
-  const As_xbot_d=new Float64Array(nn), As_ybot_d=new Float64Array(nn);
-  const As_xtop_d=new Float64Array(nn), As_ytop_d=new Float64Array(nn);
-  const layerDefs=[
-    {key:'xbot',name:'Bottom X',req:As_xbot,des:As_xbot_d,M:WA_Mx_bot,bottom:true},
-    {key:'ybot',name:'Bottom Y',req:As_ybot,des:As_ybot_d,M:WA_My_bot,bottom:true},
-    {key:'xtop',name:'Top X',   req:As_xtop,des:As_xtop_d,M:WA_Mx_top,bottom:false},
-    {key:'ytop',name:'Top Y',   req:As_ytop,des:As_ytop_d,M:WA_My_top,bottom:false},
-  ];
-  const rcCheck={limits:rlim, layers:[], nNodes:0, nKexceed:0, nAsMaxExceed:0};
-  const d_mm=rlim.d;
-  for(let i=0;i<nn;i++) if(nodeActive[i]) rcCheck.nNodes++;
-  for(const L of layerDefs){
-    let maxReq=0, nTension=0, nMinGov=0, nK=0, nMax=0;
-    for(let i=0;i<nn;i++){
-      if(!nodeActive[i]) continue;
-      const req=L.req[i];
-      const inTension=L.bottom || req>0;
-      L.des[i]=inTension ? Math.max(req, rlim.AsMin) : 0;
-      if(req>maxReq) maxReq=req;
-      if(inTension){ nTension++; if(req<rlim.AsMin) nMinGov++; }
-      if(req>rlim.AsMax) nMax++;
-      const k=d_mm>0 ? L.M[i]*1e6/(1000*d_mm*d_mm*fck_MPa) : Infinity;
-      if(L.M[i]>0 && k>EC2_K_LIM) nK++;
-    }
-    rcCheck.layers.push({key:L.key,name:L.name,maxReq,nTension,nMinGov,nKexceed:nK,nAsMaxExceed:nMax,
-      maxDes:Math.max(maxReq, nTension?rlim.AsMin:0)});
-    rcCheck.nKexceed+=nK; rcCheck.nAsMaxExceed+=nMax;
-  }
-
-  // ── Reinforcement quantity estimate for the whole slab ───────────────────
-  // Integrate design As (mm²/m ≡ 1e-6 m³ of steel per m² of slab) over every
-  // active element, using the mean of its four corner values.
-  let slabArea=0;
   const elArea=new Float64Array(nx*ny);   // plan area of each active element (0 = outside slab)
-  const layerVol={xbot:0,ybot:0,xtop:0,ytop:0}, layerVolReq={xbot:0,ybot:0,xtop:0,ytop:0};
   for(let ey=0;ey<ny;ey++) for(let ex=0;ex<nx;ex++){
     const et=elType(ex,ey); if(et==='outside') continue;
     const n0=nid(ex,ey),n1=nid(ex+1,ey),n2=nid(ex+1,ey+1),n3=nid(ex,ey+1);
+    nodeActive[n0]=nodeActive[n1]=nodeActive[n2]=nodeActive[n3]=1;
     let A;
     if(et==='boundary'){
       const nc=nn+cNodeMap[ey*nx+ex];
@@ -2868,23 +2968,10 @@ async function solveAsync(){
       A=0.5*Math.abs((nodeX[n0]*nodeY[n1]-nodeX[n1]*nodeY[n0])+(nodeX[n1]*nodeY[n2]-nodeX[n2]*nodeY[n1])
                     +(nodeX[n2]*nodeY[n3]-nodeX[n3]*nodeY[n2])+(nodeX[n3]*nodeY[n0]-nodeX[n0]*nodeY[n3]));
     }
-    slabArea+=A; elArea[ey*nx+ex]=A;
-    for(const L of layerDefs){
-      layerVol[L.key]   +=A*(L.des[n0]+L.des[n1]+L.des[n2]+L.des[n3])/4*1e-6;
-      layerVolReq[L.key]+=A*(L.req[n0]+L.req[n1]+L.req[n2]+L.req[n3])/4*1e-6;
-    }
+    elArea[ey*nx+ex]=A;
   }
-  const concVol=slabArea*h_mm/1000;
-  const rebarEst={slabArea, concVol, h_mm, density:STEEL_DENSITY, layers:{}, mass:0, massReq:0};
-  for(const L of layerDefs){
-    const m=layerVol[L.key]*STEEL_DENSITY, mr=layerVolReq[L.key]*STEEL_DENSITY;
-    rebarEst.layers[L.key]={name:L.name, mass:m, massReq:mr,
-      avgAs: slabArea>0 ? layerVol[L.key]/slabArea*1e6 : 0};
-    rebarEst.mass+=m; rebarEst.massReq+=mr;
-  }
-  rebarEst.kgPerM3   = concVol>0 ? rebarEst.mass/concVol : 0;
-  rebarEst.kgPerM3Req= concVol>0 ? rebarEst.massReq/concVol : 0;
-  rebarEst.kgPerM2   = slabArea>0 ? rebarEst.mass/slabArea : 0;
+  const h_mm   = +v('thk');
+  const fck_MPa= numIn('fck',30);
 
   // ── Column reactions (from nodal equilibrium) ─────────────────────────────
   // Correct formula: R[col] = (K · u)[col_w] − F[col_w]
@@ -2902,14 +2989,10 @@ async function solveAsync(){
       const nd=nid(iC,jC);
       const row=3*nd;  // w-DOF row index in K
 
-      // Compute K[row,:] · u using the adjSet connectivity built during assembly.
-      // adjSet[gi] lists all global DOFs connected to gi. K[gi*ndof+gj] is the
-      // stiffness entry — non-zero exactly when gj ∈ adjSet[gi] ∪ {gi}.
-      // Fixed DOF displacements are zero so they contribute nothing.
+      // K[row,:]·u from the sparse row (column order). Fixed DOFs have u = 0.
       let Ku_uls=0, Ku_sls=0;
-      // K·u via dense K row (K is Float64Array, still in closure)
-      for(let j=0;j<ndof;j++){
-        const kij=K[row*ndof+j];
+      const rowEntries=[...K.rows[row].entries()].sort((a,b)=>a[0]-b[0]);
+      for(const [j,kij] of rowEntries){
         if(kij===0) continue;
         Ku_uls+=kij*u_ULS_arr[j];
         Ku_sls+=kij*u_SLS_arr[j];
@@ -2931,21 +3014,26 @@ async function solveAsync(){
   // xC/yC use projected node coords for accurate position reporting
   const xC=Array.from(nodeX),yC=Array.from(nodeY);
 
-  // SLS combined force vector (for long-term deflection re-solve)
-  const F_SLS_combined=new Float64Array(ndof);
-  for(let i=0;i<ndof;i++) F_SLS_combined[i]=SLS.dl*F_DL[i]+SLS.sidl*F_SIDL[i]+SLS.il*F_IL[i];
+  // Stored model: everything the long-term analysis needs to rebuild this exact
+  // system (mesh incl. boundary elements, supports, load vectors) with cracked
+  // stiffness — independent of any inputs changed after this run.
+  const model={nx,ny,nn,nnExt,ndof,nodeX:nXe,nodeY:nYe,nEl:mElE.length,
+    elE:Int32Array.from(mElE), elType:Uint8Array.from(mElT), elN:Int32Array.from(mElN), elC:Int32Array.from(mElC),
+    fixed, F:{DL:F_DL,SIDL:F_SIDL,IL:F_IL,FL:F_FL}, nu};
 
-  return{nx,ny,Lx,Ly,dx,dy,gx,gy,nn,D,Ds,nu,h,
+  // Per-load-case displacements (long-term analysis combines them for its first pass)
+  model.u={DL:u_DL,SIDL:u_SIDL,IL:u_IL,FL:u_FL}; model.DbMain=DbMain; model.Ds=Ds;
+  const res={nx,ny,Lx,Ly,dx,dy,gx,gy,nn,D,Ds,nu,h,
     w: Array.from(u_SLS.filter((_,i)=>i%3===0)),
     Mx:MX, My:MY, Mxy:MXY, Vx:VX, Vy:VY,
     WA_Mx_bot, WA_My_bot, WA_Mx_top, WA_My_top,
-    As_xbot, As_ybot, As_xtop, As_ytop,
-    As_xbot_d, As_ybot_d, As_xtop_d, As_ytop_d, rcCheck, rebarEst, elArea,
-    h_mm, cnom_mm, phi_mm, fck_MPa,
+    elArea, nodeActive, h_mm, fck_MPa,
     Mx_sls:MX_sls, My_sls:MY_sls, Mxy_sls:MXY_sls, Vx_sls:VX_sls, Vy_sls:VY_sls,
     xC,yC,nodeX:nXe,nodeY:nYe,nBoundary,colReact,geo,columns,poly:custPoly||null,voids:custVoids||[],walls:custWalls||[],
-    dec, fixed, F_SLS_combined, ndof,
+    model, ndof, mode:gMode,
     qDL,qSIDL,qIL,qFL_udl,qFL_perim,swVal,totalLoad_ULS,totalLoad_SLS};
+  designRebar(res);
+  return res;
 }
 
 /* FEM helpers */
@@ -2974,6 +3062,146 @@ function addBs(ke,Bs,Ds,wt){
   for(let r=0;r<12;r++) for(let c=0;c<12;c++){let s=0;for(let k=0;k<2;k++) s+=Bs[k*12+r]*DsBs[k*12+c];ke[r*12+c]+=s*wt;}
 }
 
+/* ================================================================
+   SPARSE STIFFNESS + SHARED ELEMENT ROUTINES
+   The global stiffness is stored row-wise (one Map per DOF row) instead
+   of a dense ndof² array: a 4,000-DOF model needs ~1 MB instead of ~130 MB.
+   The element routines are shared by the main analysis and the long-term
+   (cracked, per-element stiffness) analysis so both use the same model.
+   ================================================================ */
+class SparseK{
+  constructor(n){ this.n=n; this.rows=new Array(n); for(let i=0;i<n;i++) this.rows[i]=new Map(); }
+  add(i,j,v){ const r=this.rows[i]; r.set(j,(r.get(j)||0)+v); }
+  get(i,j){ return this.rows[i].get(j)||0; }
+}
+const G2=[-1/Math.sqrt(3),1/Math.sqrt(3)];
+// Isotropic plate bending constitutive matrix (row-major 3×3)
+function DbIso(D,nu){ return [D,D*nu,0,D*nu,D,0,0,0,D*(1-nu)/2]; }
+
+// Mindlin Q4: 2×2 Gauss bending, 1-point shear + hourglass stabilisation
+function keQ4(xs,ys,Db,Ds){
+  const ke=new Float64Array(144);
+  for(const xi of G2) for(const eta of G2){
+    const s=shd(xi,eta,xs,ys);
+    const Bb=new Float64Array(36);
+    for(let k=0;k<4;k++){
+      Bb[0*12+3*k+1]=s.dx[k]; Bb[1*12+3*k+2]=s.dy[k];
+      Bb[2*12+3*k+1]=s.dy[k]; Bb[2*12+3*k+2]=s.dx[k];
+    }
+    addBb(ke,Bb,Db,s.det);
+  }
+  const s=shd(0,0,xs,ys);
+  const Bs=new Float64Array(24);
+  for(let k=0;k<4;k++){
+    Bs[0*12+3*k+0]=s.dx[k]; Bs[0*12+3*k+1]=-s.N[k];
+    Bs[1*12+3*k+0]=s.dy[k]; Bs[1*12+3*k+2]=-s.N[k];
+  }
+  addBs(ke,Bs,Ds,s.det*4);
+  const kHG=0.05*Ds*s.det, hg=[1,-1,1,-1];
+  for(let i=0;i<4;i++) for(let j=0;j<4;j++) ke[3*i*12+3*j]+=kHG*hg[i]*hg[j];
+  return ke;
+}
+// Linear Mindlin triangle (boundary elements): returns {ke(9×9), area} or null
+function triGeom(x0,y0,x1,y1,x2,y2){
+  const A2=(x1-x0)*(y2-y0)-(x2-x0)*(y1-y0);
+  const area=Math.abs(A2)*0.5; if(area<1e-14) return null;
+  const i2A=1/A2;
+  return{area,bx:[(y1-y2)*i2A,(y2-y0)*i2A,(y0-y1)*i2A],by:[(x2-x1)*i2A,(x0-x2)*i2A,(x1-x0)*i2A]};
+}
+function keTri(x0,y0,x1,y1,x2,y2,Db,Ds){
+  const g=triGeom(x0,y0,x1,y1,x2,y2); if(!g) return null;
+  const {area,bx,by}=g;
+  const Bb=new Float64Array(27);
+  for(let k=0;k<3;k++){Bb[0*9+3*k+1]=bx[k];Bb[1*9+3*k+2]=by[k];Bb[2*9+3*k+1]=by[k];Bb[2*9+3*k+2]=bx[k];}
+  const DbBb=new Float64Array(27);
+  for(let r=0;r<3;r++) for(let cc=0;cc<9;cc++){let s=0;for(let k=0;k<3;k++)s+=Db[r*3+k]*Bb[k*9+cc];DbBb[r*9+cc]=s;}
+  const ke=new Float64Array(81);
+  for(let r=0;r<9;r++) for(let cc=0;cc<9;cc++){let s=0;for(let k=0;k<3;k++)s+=Bb[k*9+r]*DbBb[k*9+cc];ke[r*9+cc]+=s*area;}
+  const Bs=new Float64Array(18);
+  for(let k=0;k<3;k++){Bs[0*9+3*k+0]=bx[k];Bs[0*9+3*k+1]=-1/3;Bs[1*9+3*k+0]=by[k];Bs[1*9+3*k+2]=-1/3;}
+  for(let r=0;r<9;r++) for(let cc=0;cc<9;cc++) ke[r*9+cc]+=(Bs[0*9+r]*Bs[0*9+cc]+Bs[1*9+r]*Bs[1*9+cc])*Ds*area;
+  return{ke,area};
+}
+
+// Wood-Armer design moments for orthogonal reinforcement (magnitudes, kNm/m).
+// FE sign convention: negative M = sagging (bottom tension), positive = hogging.
+function woodArmer(mx,my,mxy){
+  const amxy=Math.abs(mxy);
+  let mxb=mx-amxy, myb=my-amxy;
+  if(mxb>0){ myb=my-(mxy*mxy)/Math.max(Math.abs(mx),1e-12); mxb=0; }
+  if(myb>0){ mxb=mx-(mxy*mxy)/Math.max(Math.abs(my),1e-12); myb=0; }
+  let mxt=mx+amxy, myt=my+amxy;
+  if(mxt<0){ myt=my+(mxy*mxy)/Math.max(Math.abs(mx),1e-12); mxt=0; }
+  if(myt<0){ mxt=mx+(mxy*mxy)/Math.max(Math.abs(my),1e-12); myt=0; }
+  return{xb:Math.abs(Math.min(0,mxb)), yb:Math.abs(Math.min(0,myb)), xt:Math.max(0,mxt), yt:Math.max(0,myt)};
+}
+
+// The 4 corner-triangles of a boundary element (corner, next corner, centroid)
+function _bTris(m,i){ const b=4*i, c=m.elC[i], N=m.elN; return [[N[b],N[b+1],c],[N[b+1],N[b+2],c],[N[b+2],N[b+3],c],[N[b+3],N[b],c]]; }
+function _q4xy(m,i){ const b=4*i, N=m.elN, X=m.nodeX, Y=m.nodeY;
+  return{xs:[X[N[b]],X[N[b+1]],X[N[b+2]],X[N[b+3]]], ys:[Y[N[b]],Y[N[b+1]],Y[N[b+2]],Y[N[b+3]]]}; }
+
+// Assemble K for a stored model with a per-element constitutive matrix DbOf(i)
+async function assembleModelK(m, DbOf, Ds, onProgress){
+  const K=new SparseK(m.ndof);
+  const nEl=m.nEl, CH=Math.max(1,Math.floor(nEl/20));
+  for(let i=0;i<nEl;i++){
+    const Db=DbOf(i);
+    if(m.elType[i]===1){
+      for(const [a,b,c] of _bTris(m,i)){
+        const t=keTri(m.nodeX[a],m.nodeY[a],m.nodeX[b],m.nodeY[b],m.nodeX[c],m.nodeY[c],Db,Ds); if(!t) continue;
+        const df=[3*a,3*a+1,3*a+2,3*b,3*b+1,3*b+2,3*c,3*c+1,3*c+2];
+        for(let r=0;r<9;r++) for(let cc=0;cc<9;cc++) K.add(df[r],df[cc],t.ke[r*9+cc]);
+      }
+    } else {
+      const {xs,ys}=_q4xy(m,i), b=4*i, N=m.elN;
+      const ke=keQ4(xs,ys,Db,Ds);
+      const dofs=[]; for(let k=0;k<4;k++) dofs.push(3*N[b+k],3*N[b+k]+1,3*N[b+k]+2);
+      for(let r=0;r<12;r++) for(let c=0;c<12;c++) K.add(dofs[r],dofs[c],ke[r*12+c]);
+    }
+    if(onProgress && ((i+1)%CH===0||i===nEl-1)){ onProgress((i+1)/nEl*100); await yieldIfDue(); }
+  }
+  return K;
+}
+// Element-centroid curvature [κxx, κyy, κxy] (area-weighted over boundary triangles)
+function elementCurvature(m,i,u){
+  if(m.elType[i]===1){
+    let kx=0,ky=0,kxy=0,At=0;
+    for(const tri of _bTris(m,i)){
+      const g=triGeom(m.nodeX[tri[0]],m.nodeY[tri[0]],m.nodeX[tri[1]],m.nodeY[tri[1]],m.nodeX[tri[2]],m.nodeY[tri[2]]); if(!g) continue;
+      let a=0,b=0,c=0;
+      for(let k=0;k<3;k++){ const tx=u[3*tri[k]+1], ty=u[3*tri[k]+2]; a+=g.bx[k]*tx; b+=g.by[k]*ty; c+=g.by[k]*tx+g.bx[k]*ty; }
+      kx+=a*g.area; ky+=b*g.area; kxy+=c*g.area; At+=g.area;
+    }
+    return At>0?[kx/At,ky/At,kxy/At]:[0,0,0];
+  }
+  const {xs,ys}=_q4xy(m,i), s=shd(0,0,xs,ys), b=4*i, N=m.elN;
+  let kx=0,ky=0,kxy=0;
+  for(let k=0;k<4;k++){ const tx=u[3*N[b+k]+1], ty=u[3*N[b+k]+2]; kx+=s.dx[k]*tx; ky+=s.dy[k]*ty; kxy+=s.dy[k]*tx+s.dx[k]*ty; }
+  return [kx,ky,kxy];
+}
+// Equivalent nodal load of an imposed curvature κ0 (e.g. shrinkage): f = ∫ Bbᵀ·Db·κ0 dA
+function curvatureLoad(m, DbOf, kap0Of){
+  const F=new Float64Array(m.ndof);
+  for(let i=0;i<m.nEl;i++){
+    const k0=kap0Of(i); if(!k0 || (k0[0]===0&&k0[1]===0&&k0[2]===0)) continue;
+    const Db=DbOf(i);
+    const mx=Db[0]*k0[0]+Db[1]*k0[1]+Db[2]*k0[2], my=Db[3]*k0[0]+Db[4]*k0[1]+Db[5]*k0[2], mxy=Db[6]*k0[0]+Db[7]*k0[1]+Db[8]*k0[2];
+    if(m.elType[i]===1){
+      for(const tri of _bTris(m,i)){
+        const g=triGeom(m.nodeX[tri[0]],m.nodeY[tri[0]],m.nodeX[tri[1]],m.nodeY[tri[1]],m.nodeX[tri[2]],m.nodeY[tri[2]]); if(!g) continue;
+        for(let k=0;k<3;k++){ F[3*tri[k]+1]+=(g.bx[k]*mx+g.by[k]*mxy)*g.area; F[3*tri[k]+2]+=(g.by[k]*my+g.bx[k]*mxy)*g.area; }
+      }
+    } else {
+      const {xs,ys}=_q4xy(m,i), b=4*i, N=m.elN;
+      for(const xi of G2) for(const eta of G2){
+        const s=shd(xi,eta,xs,ys);
+        for(let k=0;k<4;k++){ F[3*N[b+k]+1]+=(s.dx[k]*mx+s.dy[k]*mxy)*s.det; F[3*N[b+k]+2]+=(s.dy[k]*my+s.dx[k]*mxy)*s.det; }
+      }
+    }
+  }
+  return F;
+}
 function applyLoadLC(F,dofs,Nsh,det,q0,xs,ys,lt,lc){
   if(lt==='udl'){
     for(let k=0;k<4;k++) F[dofs[3*k]]+=Nsh[k]*q0*det;
@@ -3050,78 +3278,97 @@ function _cuthillMcKee(adj, nf){
   return{perm,invPerm};
 }
 
-async function ldltDecomp(K,n,fixedSet,onProgress,adjSet_global){
-  // ── Step 1: extract free DOFs ──────────────────────────────────────────────
-  const free=[];
-  for(let i=0;i<n;i++) if(!fixedSet.has(i)) free.push(i);
-  const nf=free.length;
+async function ldltDecomp(K,n,fixedSet,onProgress,adjSet_global,sym){
+  // sym (optional): cache object for the symbolic phase (free DOFs, ordering,
+  // bandwidth). Pass the same object for repeated factorisations of matrices
+  // with an identical sparsity pattern (long-term iterations).
+  const sparse=!!(K&&K.rows);
+  const Kget=sparse ? (i,j)=>K.get(i,j) : (i,j)=>K[i*n+j];
+  let free,nf,freeIdx,perm,invPerm,bw,adj=null;
+  if(sym && sym.perm){
+    ({free,nf,freeIdx,perm,invPerm,bw}=sym);
+  } else {
+    // ── Step 1: extract free DOFs ────────────────────────────────────────────
+    free=[];
+    for(let i=0;i<n;i++) if(!fixedSet.has(i)) free.push(i);
+    nf=free.length;
+    freeIdx=new Int32Array(n).fill(-1);
+    for(let i=0;i<nf;i++) freeIdx[free[i]]=i;
 
-  // ── Step 2: build adjacency from assembly-time connectivity ──────────────
-  // adjSet_global[gi] = Set of global DOF indices connected to gi.
-  // Provided by solveAsync at zero extra cost (built during assembly).
-  // For LT solver (no adjSet): fall back to a windowed scan.
-  const freeIdx=new Int32Array(n).fill(-1);
-  for(let i=0;i<nf;i++) freeIdx[free[i]]=i;
+    // ── Step 2: build adjacency from the matrix sparsity ───────────────────
+    // SparseK (all current callers): exact structural connectivity from the rows.
+    // Legacy dense Float64Array: assembly-time adjSet, else a windowed scan.
+    adj=new Array(nf);
+    for(let i=0;i<nf;i++) adj[i]=new Set();
+    if(sparse){
+      for(let li=0;li<nf;li++){
+        const gi=free[li];
+        for(const gj of K.rows[gi].keys()){
+          const lj=freeIdx[gj];
+          if(lj>=0&&lj!==li){ adj[li].add(lj); adj[lj].add(li); }
+        }
+      }
+    } else if(adjSet_global){
+      for(let li=0;li<nf;li++){
+        const gi=free[li];
+        if(!adjSet_global[gi]) continue;
+        for(const gj of adjSet_global[gi]){
+          const lj=freeIdx[gj];
+          if(lj>=0&&lj!==li){ adj[li].add(lj); adj[lj].add(li); }
+        }
+      }
+    } else {
+      const bwGuess=Math.min(nf, Math.ceil(3*(Math.ceil(Math.sqrt(nf/3))+2))*2);
+      const CHUNK_ADJ=Math.max(1,Math.floor(nf/20));
+      for(let li=0;li<nf;li++){
+        const gi=free[li];
+        const jLo=Math.max(0,li-bwGuess), jHi=Math.min(nf,li+bwGuess);
+        for(let lj=jLo;lj<jHi;lj++){
+          if(lj===li) continue;
+          if(K[gi*n+free[lj]]!==0){ adj[li].add(lj); adj[lj].add(li); }
+        }
+        if((li+1)%CHUNK_ADJ===0) await yieldIfDue();
+      }
+    }
 
-  const adj=new Array(nf);
-  for(let i=0;i<nf;i++) adj[i]=new Set();
-  if(adjSet_global){
-    // O(nf × avg_degree) — ~20 neighbours per node for plate mesh
+    // ── Step 3: ordering — Cuthill-McKee or the natural (row-by-row) order,
+    //    whichever gives the smaller band. On structured rectangular meshes the
+    //    natural order is ~2× narrower, i.e. ~4× less factorisation work.
+    let bwN=1;
+    for(let li=0;li<nf;li++) for(const lj of adj[li]){ const d=Math.abs(li-lj); if(d>bwN) bwN=d; }
+    const cm=_cuthillMcKee(adj,nf);
+    let bwC=1;
+    for(let li=0;li<nf;li++){ const ni=cm.perm[li]; for(const lj of adj[li]){ const d=Math.abs(ni-cm.perm[lj]); if(d>bwC) bwC=d; } }
+    if(bwN<=bwC){
+      perm=new Int32Array(nf); invPerm=new Int32Array(nf);
+      for(let i=0;i<nf;i++){ perm[i]=i; invPerm[i]=i; }
+      bw=Math.min(bwN+1,nf);
+    } else {
+      perm=cm.perm; invPerm=cm.invPerm; bw=Math.min(bwC+1,nf);
+    }
+    // bw = number of columns stored per row (diagonal + bw-1 subdiagonals)
+    if(sym) Object.assign(sym,{free,nf,freeIdx,perm,invPerm,bw});
+  }
+
+  // ── Step 4: build reordered banded matrix ──────────────────────────────────
+  // B[i*bw + k] = A_reordered[i, i-bw+1+k] for k in [0, bw); lower triangle only
+  const B=new Float64Array(nf*bw); // zero-initialised
+  if(sparse){
     for(let li=0;li<nf;li++){
-      const gi=free[li];
-      if(!adjSet_global[gi]) continue;
-      for(const gj of adjSet_global[gi]){
-        const lj=freeIdx[gj];
-        if(lj>=0&&lj!==li){ adj[li].add(lj); adj[lj].add(li); }
+      const gi=free[li], ni=perm[li];
+      for(const [gj,val] of K.rows[gi]){
+        const lj=freeIdx[gj]; if(lj<0) continue;
+        const nj=perm[lj];
+        if(nj<=ni){ const k=bw-1-(ni-nj); if(k>=0) B[ni*bw+k]=val; }
       }
     }
   } else {
-    // Fallback (LT solver): windowed scan bounded by analytical bandwidth
-    const bwGuess=Math.min(nf, Math.ceil(3*(Math.ceil(Math.sqrt(nf/3))+2))*2);
-    const CHUNK_ADJ=Math.max(1,Math.floor(nf/20));
     for(let li=0;li<nf;li++){
-      const gi=free[li];
-      const jLo=Math.max(0,li-bwGuess), jHi=Math.min(nf,li+bwGuess);
-      for(let lj=jLo;lj<jHi;lj++){
-        if(lj===li) continue;
-        if(K[gi*n+free[lj]]!==0){ adj[li].add(lj); adj[lj].add(li); }
-      }
-      if((li+1)%CHUNK_ADJ===0) await yieldFrame();
-    }
-  }
-
-  // ── Step 3: Cuthill-McKee reordering ──────────────────────────────────────
-  const{perm,invPerm}=_cuthillMcKee(adj,nf);
-  // perm[oldLocal] = newLocal, invPerm[newLocal] = oldLocal
-
-  // ── Step 4: compute actual half-bandwidth of reordered system ─────────────
-  let bw=1; // minimum bandwidth = diagonal only
-  for(let li=0;li<nf;li++){
-    const ni=perm[li]; // new index of old node li
-    for(const lj of adj[li]){
-      const nj=perm[lj];
-      const diff=Math.abs(ni-nj);
-      if(diff>bw) bw=diff;
-    }
-  }
-  bw=Math.min(bw+1, nf); // half-bandwidth including diagonal
-  // bw is the number of columns stored per row (diagonal + bw-1 subdiagonals)
-
-  // ── Step 5: build reordered banded matrix ─────────────────────────────────
-  // B[i*bw + k] = A_reordered[i, i-bw+1+k] for k in [0, bw)
-  // i.e. column indices stored for row i: [i-bw+1 ... i]
-  // Only lower triangle (k < bw-1 means off-diagonal below; k=bw-1 is diagonal)
-  const B=new Float64Array(nf*bw); // zero-initialised
-  for(let li=0;li<nf;li++){
-    const ni=perm[li]; // row in reordered system
-    // Diagonal
-    B[ni*bw+(bw-1)]=K[free[li]*n+free[li]];
-    // Off-diagonals
-    for(const lj of adj[li]){
-      const nj=perm[lj];
-      if(nj<ni){ // lower triangle
-        const col=nj, rowMajorK=bw-1-(ni-nj);
-        if(rowMajorK>=0) B[ni*bw+rowMajorK]=K[free[li]*n+free[lj]];
+      const ni=perm[li];
+      B[ni*bw+(bw-1)]=Kget(free[li],free[li]);
+      for(const lj of adj[li]){
+        const nj=perm[lj];
+        if(nj<ni){ const k=bw-1-(ni-nj); if(k>=0) B[ni*bw+k]=Kget(free[li],free[lj]); }
       }
     }
   }
@@ -3134,7 +3381,7 @@ async function ldltDecomp(K,n,fixedSet,onProgress,adjSet_global){
 
   const d=new Float64Array(nf);
   const zeroModes=[];
-  const CHUNK=Math.max(1,Math.floor(nf/40));
+  const CHUNK=Math.max(1,Math.floor(nf/200));
 
   for(let j=0;j<nf;j++){
     // Diagonal: d[j] = B[j,j] - sum_{k<j, |j-k|<bw} L[j,k]² * d[k]
@@ -3165,7 +3412,7 @@ async function ldltDecomp(K,n,fixedSet,onProgress,adjSet_global){
     if((j+1)%CHUNK===0||j===nf-1){
       const pct=Math.round(((j+1)/nf)**2*100); // quadratic weight for banded
       if(onProgress) onProgress(pct);
-      await yieldFrame();
+      await yieldIfDue();
     }
   }
   return{B,d,bw,free,nf,zeroModes,perm,invPerm,freeIdx};
@@ -3272,19 +3519,9 @@ function display(r){
     document.getElementById('sv-wamxb').textContent=maxWAmxb.toFixed(2)+' kNm/m';
     document.getElementById('sv-wamyb').textContent=maxWAmyb.toFixed(2)+' kNm/m';
   }
-  if(r.As_xbot){
-    const maxAsxb=safe(absMax(r.As_xbot_d||r.As_xbot));
-    const maxAsyb=safe(absMax(r.As_ybot_d||r.As_ybot));
-    document.getElementById('sv-asxb').textContent=maxAsxb.toFixed(0)+' mm²/m';
-    document.getElementById('sv-asyb').textContent=maxAsyb.toFixed(0)+' mm²/m';
-  }
-  if(r.rcCheck){
-    const L=r.rcCheck.limits;
-    const bad=r.rcCheck.nKexceed>0||r.rcCheck.nAsMaxExceed>0;
-    document.getElementById('sv-asmin').innerHTML=L.AsMin.toFixed(0)+' mm²/m'+
-      (bad?' <span class="lc-badge uls">⚠ CHECK</span>':'');
-  }
+  updateDesignStats(r);
   if(r.rebarEst) renderRebarSummary(r);
+  rebarMeshInfo();
   if(r.swVal!==undefined){
     const svDLEl=document.getElementById('sv-dl-breakdown');
     if(svDLEl) svDLEl.textContent=`${(r.swVal??0).toFixed(2)} kN/m²`;
@@ -3347,6 +3584,73 @@ function display(r){
   redrawAll();
 }
 
+// Stat-bar values that depend on the reinforcement design (cover / bar size)
+function updateDesignStats(r){
+  const absMax=arr=>{ let m=0; for(let i=0;i<arr.length;i++){ const a=Math.abs(arr[i]); if(a>m) m=a; } return m; };
+  if(r.As_xbot){
+    document.getElementById('sv-asxb').textContent=absMax(r.As_xbot_d||r.As_xbot).toFixed(0)+' mm²/m';
+    document.getElementById('sv-asyb').textContent=absMax(r.As_ybot_d||r.As_ybot).toFixed(0)+' mm²/m';
+  }
+  if(r.rcCheck){
+    const L=r.rcCheck.limits;
+    const bad=r.rcCheck.nKexceed>0||r.rcCheck.nAsMaxExceed>0;
+    document.getElementById('sv-asmin').innerHTML=L.AsMin.toFixed(0)+' mm²/m'+
+      (bad?' <span class="lc-badge uls">⚠ CHECK</span>':'');
+  }
+}
+
+/* ── Staleness & live updates ─────────────────────────────────────────────
+   • Inputs that change the analysis (geometry, loads, material, mesh…) mark
+     the results out of date until RUN ANALYSIS is pressed.
+   • Cover / design bar and all provided-reinforcement inputs update the
+     design, estimate and plots immediately (moments do not depend on them).
+   • Anything the long-term result depends on marks it out of date. */
+function setResultsStale(on){
+  gResultsStale=!!on && !!gRes;
+  const b=document.getElementById('staleBanner'); if(b) b.style.display=gResultsStale?'block':'none';
+}
+function markResultsStale(){ if(gRes) setResultsStale(true); }
+function markLTStale(){
+  if(gLTRes && !gLTRes.stale){ gLTRes.stale=true; showLTResults(); if(gRes) redrawAll(); }
+}
+let _liveTimer=null;
+function _liveRefresh(fn){ clearTimeout(_liveTimer); _liveTimer=setTimeout(fn,120); }
+function rebarInputsChanged(){
+  rebarMeshInfo();
+  if(!gRes) return;
+  markLTStale();
+  _liveRefresh(()=>{ gRes.prov=computeProvidedRebar(gRes); renderRebarSummary(gRes); redrawAll(); rebarMeshInfo(); });
+}
+function designInputsChanged(){
+  updateRebarInfo(); rebarMeshInfo();
+  if(!gRes) return;
+  markLTStale();
+  _liveRefresh(()=>{ designRebar(gRes); updateDesignStats(gRes); renderRebarSummary(gRes); redrawAll(); rebarMeshInfo(); });
+}
+// Sidebar summary of the base mesh / deflection bars currently selected
+function rebarMeshInfo(){
+  const box=document.getElementById('meshInfoBox'); if(!box) return;
+  const sel=(document.getElementById('ltMatPhi')||{value:'auto'}).value;
+  const sp=Math.max(50,numIn('ltMatSpacing',200));
+  const AsMin=(gRes&&gRes.rcCheck) ? gRes.rcCheck.limits.AsMin
+    : ec2RebarLimits(numIn('thk',250),numIn('cnom',30),numIn('phi',16),numIn('fck',30)).AsMin;
+  const mesh=chooseMesh(sel,sp,AsMin);
+  const sagPhi=numIn('ltSagPhi',0), sagS=Math.max(50,numIn('ltSagSpacing',200));
+  const sag=sagPhi>0?barAs(sagPhi,sagS):0;
+  box.innerHTML=`Mesh <strong style="color:var(--purple)">${barLbl(mesh)}</strong> = ${mesh.As.toFixed(0)} mm²/m${mesh.auto?' (auto)':''}`+
+    ` · A<sub>s,min</sub> = ${AsMin.toFixed(0)} mm²/m`+
+    (mesh.As+1e-9<AsMin?' <span style="color:var(--rubine)">⚠ mesh below A<sub>s,min</sub></span>':'')+
+    (sag?`<br>Sagging zones: mesh + H${sagPhi}@${sagS} = <strong>${(mesh.As+sag).toFixed(0)} mm²/m</strong> bottom`:'');
+}
+const _LIVE_INPUTS=new Set(['cnom','phi','ltMatPhi','ltMatSpacing','rbZone','rbMaxTypes','rbTopMesh','ltSagPhi','ltSagSpacing','rebarAllow']);
+const _LT_INPUTS=new Set(['ltRH','ltT0','ltCreep','ltBeta','ltCs','ltCsOn','ltPsi2','ltZetaComb','ltIter']);
+function _onInputEdit(e){
+  const id=e.target&&e.target.id;
+  if(!id || id==='ltAuto' || _LIVE_INPUTS.has(id)) return;
+  if(_LT_INPUTS.has(id)){ markLTStale(); return; }
+  markResultsStale();
+}
+
 // Reinforcement check & quantity estimate panel (REBAR tab) + stat bar value
 function renderRebarSummary(r){
   const est=r.rebarEst, rc=r.rcCheck;
@@ -3360,8 +3664,7 @@ function renderRebarSummary(r){
   const ok='<span style="color:#1a8a3a;font-weight:700">OK</span>';
   const ng=t=>`<span style="color:var(--rubine);font-weight:700">${t}</span>`;
 
-  const prov=computeProvidedRebar(r);
-  r.prov=prov;
+  const prov=r.prov||(r.prov=computeProvidedRebar(r));
   const pv=prov||{mass:est.mass,kgPerM3:est.kgPerM3,kgPerM2:est.kgPerM2,concVol:est.concVol,slabArea:est.slabArea};
   document.getElementById('sv-rebar').innerHTML=
     `${n0(pv.kgPerM3*f)} kg/m³ <span style="font-size:0.6rem;color:var(--text-dim)">(${n0(pv.mass*f)} kg)</span>`;
@@ -3405,7 +3708,8 @@ function renderRebarSummary(r){
     <div style="font-size:0.62rem;color:var(--text-dim);line-height:1.7;margin-bottom:6px;">
       Additional bars are rationalised into zones of ≈${prov.z} m (aligned to the column grid where present). Each zone is
       detailed for the <strong>worst node inside it</strong> (max of A<sub>s,req</sub> and A<sub>s,min</sub>), using the
-      smallest standard bar at the mesh spacing or half of it.
+      smallest standard bar at the mesh spacing or half of it (≥ 100 mm)${prov.maxTypes?`, then limited to ${prov.maxTypes} arrangement${prov.maxTypes>1?'s':''} per layer (zones rounded up, minimum total steel)`:''}.
+      Mesh ${barLbl(prov.mesh)}${prov.mesh.auto?' chosen automatically as the lightest bar at '+prov.mesh.s+' mm meeting A<sub>s,min</sub>':''}.
       ${prov.sag?`Deflection bars ${barLbl(prov.sag)} are added to bottom steel in every zone with sagging SLS moment in that direction; where strength needs more, the larger arrangement is used (not both).`:'No deflection bars set.'}
       Top mesh: ${prov.topAll?'throughout slab':'hogging zones only'}.
       ${prov.warnings.length?'<div style="color:var(--rubine);margin-top:4px;">⚠ '+prov.warnings.join('<br>⚠ ')+'</div>':''}
@@ -3509,6 +3813,156 @@ function drawRebarMap(r,prov){
   });
 }
 
+/* ================================================================
+   PROVIDED REINFORCEMENT PLAN (one layer)
+   Elements are filled by the arrangement provided in their zone (base mesh
+   only / + additional strength bars / + deflection bars), darker = heavier.
+   Each connected region of one arrangement is outlined and labelled once.
+   ================================================================ */
+function drawProvided(cid, r, key){
+  const{c,ctx,W,H}=setupCvs(cid);
+  if(W<=1||H<=1) return;
+  ctx.clearRect(0,0,W,H); ctx.fillStyle='#FAFAFA'; ctx.fillRect(0,0,W,H);
+  const prov=r.prov; if(!prov||!prov.layers[key]) return;
+  const P=prov.layers[key], m=r.model, nx=r.nx;
+  // Wide canvas: legend to the right. Narrow (phones): legend below, short title.
+  const narrow=W<640;
+  const nLeg=(P.meshArea>0?1:0)+P.schedule.length;
+  const lgW=narrow?0:Math.min(230,Math.max(150,W*0.22)), pad=narrow?28:58;
+  const lgH=narrow?Math.ceil(nLeg/2)*28+78:0;
+  const x0=pad,y0=pad+(narrow?6:0),pw=W-2*pad-lgW,ph=H-2*pad-lgH-(narrow?6:0);
+  const ws=(wx,wy)=>w2s(wx,wy,r.Lx,r.Ly,x0,y0,pw,ph);
+  const X=r.nodeX, Y=r.nodeY;
+  // Arrangement styles: index by key "label|src"; strength = purple→rubine ramp, deflection = gold
+  const sched=P.schedule.slice().sort((a,b)=>a.bar.As-b.bar.As);
+  const ramp=['#cfc8ee','#a99ce0','#7f6fcc','#554996','#a3307f','#E50076','#9b0050'];
+  const style=new Map(); let si=0;
+  const nStr=sched.filter(it=>it.src!=='deflection').length;
+  for(const it of sched){
+    const k=barLbl(it.bar)+'|'+it.src;
+    if(it.src==='deflection') style.set(k,{fill:'#F9B000',text:'#3a2a00'});
+    else{
+      const t=nStr>1?si/(nStr-1):1, idx=Math.round(t*(ramp.length-1)); si++;
+      style.set(k,{fill:ramp[idx],text:idx>=3?'#ffffff':'#2a2350'});
+    }
+  }
+  const meshFill='#ececf3', noneFill='#ffffff';
+  const zKey=zi=>P.zAdd[zi]?barLbl(P.zAdd[zi])+'|'+P.zSrc[zi]:(P.zBase[zi]>0?'mesh':'none');
+  // Element fills
+  for(let i=0;i<m.nEl;i++){
+    const e=m.elE[i], zi=prov.zoneOf[e]; if(zi<0) continue;
+    const k=zKey(zi);
+    ctx.fillStyle=k==='mesh'?meshFill:k==='none'?noneFill:style.get(k).fill;
+    ctx.beginPath();
+    for(let q=0;q<4;q++){ const n=m.elN[4*i+q]; const{sx,sy}=ws(X[n],Y[n]); q?ctx.lineTo(sx,sy):ctx.moveTo(sx,sy); }
+    ctx.closePath(); ctx.fill();
+    ctx.strokeStyle=ctx.fillStyle; ctx.lineWidth=0.6; ctx.stroke();   // hide hairline seams
+  }
+  // Slab outline / voids
+  if(r.poly&&r.poly.length>=3){
+    ctx.beginPath(); r.poly.forEach((p,i)=>{const{sx,sy}=ws(p.x,p.y); i?ctx.lineTo(sx,sy):ctx.moveTo(sx,sy);});
+    ctx.closePath(); ctx.strokeStyle='rgba(80,80,80,0.75)'; ctx.lineWidth=1.5; ctx.stroke();
+  } else { const a=ws(0,r.Ly), b=ws(r.Lx,0); ctx.strokeStyle='rgba(80,80,80,0.75)'; ctx.lineWidth=1.5; ctx.strokeRect(a.sx,a.sy,b.sx-a.sx,b.sy-a.sy); }
+  if(r.voids) r.voids.forEach(v=>{ if(!v.closed||v.poly.length<3) return;
+    ctx.beginPath(); v.poly.forEach((p,i)=>{const{sx,sy}=ws(p.x,p.y); i?ctx.lineTo(sx,sy):ctx.moveTo(sx,sy);});
+    ctx.closePath(); ctx.fillStyle='#FAFAFA'; ctx.fill(); ctx.strokeStyle='rgba(80,80,80,0.7)'; ctx.lineWidth=1.2; ctx.stroke(); });
+  // Region boundaries between zones with different arrangements
+  const ex_=prov.zoneEdgesX, ey_=prov.zoneEdgesY, nzx=prov.nzx, nzy=prov.nzy;
+  const zk=new Array(nzx*nzy);
+  for(let zi=0;zi<nzx*nzy;zi++) zk[zi]=(P.zBase[zi]>0||P.zAdd[zi])?zKey(zi):null;
+  ctx.strokeStyle='rgba(40,30,80,0.55)'; ctx.lineWidth=1;
+  for(let j=0;j<nzy;j++) for(let i=0;i<nzx;i++){
+    const z=j*nzx+i; if(zk[z]===null) continue;
+    if(i+1<nzx && zk[z+1]!==null && zk[z+1]!==zk[z]){ const a=ws(ex_[i+1],ey_[j]), b=ws(ex_[i+1],ey_[j+1]); ctx.beginPath(); ctx.moveTo(a.sx,a.sy); ctx.lineTo(b.sx,b.sy); ctx.stroke(); }
+    if(j+1<nzy && zk[z+nzx]!==null && zk[z+nzx]!==zk[z]){ const a=ws(ex_[i],ey_[j+1]), b=ws(ex_[i+1],ey_[j+1]); ctx.beginPath(); ctx.moveTo(a.sx,a.sy); ctx.lineTo(b.sx,b.sy); ctx.stroke(); }
+  }
+  // Bay grid lines and columns for orientation
+  if(r.geo&&r.geo.nbx&&r.geo.xs){
+    ctx.strokeStyle='rgba(85,73,150,0.25)'; ctx.lineWidth=0.8; ctx.setLineDash([4,5]);
+    for(const gxl of r.geo.xs){ const a=ws(gxl,0), b=ws(gxl,r.Ly); ctx.beginPath(); ctx.moveTo(a.sx,a.sy); ctx.lineTo(b.sx,b.sy); ctx.stroke(); }
+    for(const gyl of r.geo.ys){ const a=ws(0,gyl), b=ws(r.Lx,gyl); ctx.beginPath(); ctx.moveTo(a.sx,a.sy); ctx.lineTo(b.sx,b.sy); ctx.stroke(); }
+    ctx.setLineDash([]);
+  }
+  if(r.columns) for(const col of r.columns){
+    const{sx,sy}=ws(col.x,col.y), cw=Math.max(5,col.cx/r.Lx*pw*0.9), ch=Math.max(5,col.cy/r.Ly*ph*0.9);
+    ctx.fillStyle='#2b2b2b'; ctx.fillRect(sx-cw/2,sy-ch/2,cw,ch);
+  }
+  // One label per connected region of additional bars (no overlapping labels)
+  const seen=new Uint8Array(nzx*nzy), placed=[];
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  for(let z0=0;z0<nzx*nzy;z0++){
+    if(seen[z0]||!P.zAdd[z0]) continue;
+    const k=zk[z0], stack=[z0], comp=[]; seen[z0]=1;
+    while(stack.length){ const z=stack.pop(); comp.push(z); const i=z%nzx, j=(z/nzx)|0;
+      for(const [di,dj] of [[1,0],[-1,0],[0,1],[0,-1]]){ const a=i+di,b=j+dj; if(a<0||b<0||a>=nzx||b>=nzy) continue;
+        const zz=b*nzx+a; if(!seen[zz]&&zk[zz]===k){ seen[zz]=1; stack.push(zz); } } }
+    // label at the member zone nearest the region centroid that is free of other labels
+    let cx=0,cy=0; for(const z of comp){ const i=z%nzx,j=(z/nzx)|0; cx+=(ex_[i]+ex_[i+1])/2; cy+=(ey_[j]+ey_[j+1])/2; }
+    cx/=comp.length; cy/=comp.length;
+    const cand=comp.map(z=>{ const i=z%nzx,j=(z/nzx)|0; return {z,d:Math.hypot((ex_[i]+ex_[i+1])/2-cx,(ey_[j]+ey_[j+1])/2-cy)}; })
+                  .sort((u,v)=>u.d-v.d);
+    const txt='+'+barLbl(P.zAdd[z0]);
+    ctx.font='bold 9px Arial';
+    const tw=ctx.measureText(txt).width, bw_=tw+6, bh_=14;
+    const z00=cand[0].z, a0=ws(ex_[z00%nzx],ey_[(z00/nzx)|0]), b0=ws(ex_[z00%nzx+1],ey_[((z00/nzx)|0)+1]);
+    if(comp.length*Math.abs(b0.sx-a0.sx)*Math.abs(b0.sy-a0.sy)<tw*12 || Math.abs(b0.sy-a0.sy)<9) continue;  // too small to label
+    let spot=null;
+    for(const c of cand){
+      const i=c.z%nzx, j=(c.z/nzx)|0, a=ws(ex_[i],ey_[j]), b=ws(ex_[i+1],ey_[j+1]);
+      const lx=(a.sx+b.sx)/2, ly=(a.sy+b.sy)/2;
+      const R={x0:lx-bw_/2-2,y0:ly-bh_/2-2,x1:lx+bw_/2+2,y1:ly+bh_/2+2};
+      if(!placed.some(q=>R.x0<q.x1&&R.x1>q.x0&&R.y0<q.y1&&R.y1>q.y0)){ spot={lx,ly,R}; break; }
+    }
+    if(!spot) continue;
+    placed.push(spot.R);
+    const st=style.get(k);
+    ctx.fillStyle='rgba(255,255,255,0.88)'; ctx.fillRect(spot.lx-bw_/2,spot.ly-bh_/2,bw_,bh_);
+    ctx.fillStyle=st&&st.fill==='#F9B000'?'#7a5600':'#2a2350'; ctx.fillText(txt,spot.lx,spot.ly);
+  }
+  ctx.textBaseline='alphabetic';
+  // Check: provided ≥ required (incl. As,min) at every node of every element
+  const AsMin=r.rcCheck.limits.AsMin, req=r['As_'+key], bottom=key.endsWith('bot');
+  let nShort=0;
+  for(let i=0;i<m.nEl;i++){
+    const e=m.elE[i]; if(prov.zoneOf[e]<0) continue;
+    for(let q=0;q<4;q++){ const n=m.elN[4*i+q], qn=req[n]; const need=bottom?Math.max(qn,AsMin):(qn>0?Math.max(qn,AsMin):0);
+      if(P.elAs[e]+1e-6<need){ nShort++; break; } }
+  }
+  // Title
+  ctx.textAlign='center'; ctx.fillStyle='rgba(229,0,118,0.9)'; ctx.font='bold 11px Space Mono';
+  ctx.fillText(narrow?`Provided As — ${P.name} (mm²/m)`
+    :`Provided As — ${P.name}: ${barLbl(prov.mesh)} mesh + additional bars in ≈${prov.z} m zones (mm²/m)`,x0+pw/2,y0-12);
+  // Legend (right of the plan, or two columns below it on narrow canvases)
+  let lx=narrow?pad:x0+pw+18, ly=narrow?y0+ph+44:y0+4, col=0;
+  const colW=narrow?(W-2*pad)/2:0, lx0=lx;
+  ctx.textAlign='left'; ctx.font='bold 10px Arial'; ctx.fillStyle='#554996';
+  if(!narrow){ ctx.fillText(P.name+' — provided',lx,ly); ly+=16; }
+  const row=(fill,l1,l2)=>{
+    ctx.fillStyle=fill; ctx.fillRect(lx,ly-9,14,14); ctx.strokeStyle='#999'; ctx.lineWidth=0.8; ctx.strokeRect(lx,ly-9,14,14);
+    ctx.fillStyle='#333'; ctx.font='bold 9.5px Arial'; ctx.fillText(l1,lx+20,ly);
+    ctx.fillStyle='#777'; ctx.font='9px Arial'; ctx.fillText(l2,lx+20,ly+11);
+    if(narrow){ if(++col%2){ lx=lx0+colW; } else { lx=lx0; ly+=28; } } else ly+=28;
+  };
+  if(P.meshArea>0) row(meshFill,`${barLbl(prov.mesh)} mesh only`,`${prov.mesh.As.toFixed(0)} mm²/m`);
+  for(const it of sched.slice().reverse()){
+    const k=barLbl(it.bar)+'|'+it.src, st=style.get(k);
+    row(st.fill,`+ ${barLbl(it.bar)}${it.src==='deflection'?' (deflection)':''}`,
+      `${(prov.mesh.As*(P.meshArea>0?1:0)+it.bar.As).toFixed(0)} mm²/m · ${it.area.toFixed(1)} m²`);
+  }
+  if(narrow){ lx=lx0; if(col%2) ly+=28; }
+  ly+=4; ctx.font='9.5px Arial'; ctx.fillStyle='#333';
+  ctx.fillText(`Layer steel: ${P.mass.toFixed(0)} kg`,lx,ly); ly+=13;
+  ctx.fillText(`${(prov.slabArea>0?P.mass/prov.slabArea:0).toFixed(2)} kg/m² · ${(prov.concVol>0?P.mass/prov.concVol:0).toFixed(1)} kg/m³`,lx,ly); ly+=17;
+  ctx.font='bold 9.5px Arial';
+  if(nShort===0){ ctx.fillStyle='#1a8a3a'; ctx.fillText('✓ Provided ≥ required at all nodes',lx,ly); }
+  else { ctx.fillStyle='#E50076'; ctx.fillText(`⚠ ${nShort} element(s) under-provided`,lx,ly); }
+  ly+=13; ctx.font='9px Arial'; ctx.fillStyle='#777';
+  ctx.fillText('(A_s,req incl. A_s,min, all nodes)',lx,ly);
+  ctx.fillStyle='#808080'; ctx.font='10px Space Mono'; ctx.textAlign='center';
+  ctx.fillText(`Lx = ${r.Lx} m`,x0+pw/2,narrow?y0+ph+20:H-10);
+  ctx.save(); ctx.translate(narrow?10:15,y0+ph/2); ctx.rotate(-Math.PI/2); ctx.fillText(`Ly = ${r.Ly} m`,0,0); ctx.restore();
+}
+
 function redrawAll(){
   if(!gRes) return;
   drawMesh(gRes);
@@ -3540,18 +3994,21 @@ function redrawAll(){
     draw('cvAsxt',Array.from(des?gRes.As_xtop_d:gRes.As_xtop),`As,x Top (Hogging)${dTag}${mTag} — mm²/m`);
     draw('cvAsyt',Array.from(des?gRes.As_ytop_d:gRes.As_ytop),`As,y Top (Hogging)${dTag}${mTag} — mm²/m`);
   }
-  if(gLTRes && gLTRes.w_lt){
-    draw('cvLTDefl', gLTRes.w_lt.map(w=>-w*1000),
-      `Long-Term Deflection — EC2 QP (ψ₂=${gLTRes.psi2.toFixed(2)}, φ=${gLTRes.phi_creep}, β=${gLTRes.beta}) — mm`, true);
-    if(gLTRes.icrIu)
-      contour('cvIcrIu', gRes, gLTRes.icrIu,
-        'Icr/Iu Ratio — cracking state per element (0=uncracked, →1=fully cracked)');
+  if(gLTRes && gLTRes.w_lt && gLTRes.seq===gRes.seq){
+    const L=gLTRes;
+    draw('cvLTDefl', L.w_lt.map(w=>-w*1000),
+      `Long-Term Deflection — EC2 QP (ψ₂=${L.psi2.toFixed(2)}, φ=${L.phi_creep.toFixed(2)}, β=${L.beta}`+
+      `${L.csOn?`, ε_cs=${(L.eps_cs*1000).toFixed(3)}‰`:', no shrinkage'})${L.stale?' — OUT OF DATE':''} — mm`, true);
+    contour('cvIcrIu', gRes, L.zeta,
+      'Cracking ζ (Eq. 7.19) — 0 = uncracked, 1 = fully cracked (max of x, y)');
   }
-  if(gRes.prov && gCurrentTab==='rebar') drawRebarMap(gRes,gRes.prov);
+  updateNavState();
+  if(gRes.prov){
+    if(gCurrentTab==='rebar') drawRebarMap(gRes,gRes.prov);
+    drawProvided('cvPvxb',gRes,'xbot'); drawProvided('cvPvyb',gRes,'ybot');
+    drawProvided('cvPvxt',gRes,'xtop'); drawProvided('cvPvyt',gRes,'ytop');
+  }
   updateToolbar();
-  // Reveal long-term section once main analysis is done
-  const ltSecEl=document.getElementById('ltSec');
-  if(ltSecEl){ ltSecEl.style.display='block'; if(typeof ltUpdateCreep==='function') ltUpdateCreep(); }
 }
 function setupCvs(id){
   const c=document.getElementById(id);
@@ -4479,77 +4936,291 @@ let gLTRes=null;
 
 let _ltTimerInterval=null;
 
-async function runLongTerm(){
-  if(!gRes){ alert('Run the main analysis first.'); return; }
+/* ================================================================
+   LONG-TERM DEFLECTION — BS EN 1992-1-1 §7.4.3
+   ----------------------------------------------------------------
+   • Uses the analysed model (r.model): same mesh, boundary elements,
+     supports and load vectors as the main run, reassembled with cracked
+     stiffness — independent of inputs changed since that run.
+   • Per element and reinforcement direction (x, y):
+       – governing SLS moment = larger Wood-Armer moment (bottom/sagging or
+         top/hogging); tension steel = provided steel on that face
+       – Ec,eff = Ecm/(1+φ)                                     (Eq. 7.20)
+       – uncracked transformed I_I and cracked I_II (incl. compression steel)
+       – ζ = 1 − β(Mcr/M)² for M > Mcr, else 0                    (Eq. 7.19)
+       – curvature interpolation 1/D = ζ/D_II + (1−ζ)/D_I         (Eq. 7.18)
+     → orthotropic plate rigidities Dx, Dy (Huber: Dxy = √(Dx·Dy)).
+   • Optional iteration: re-solve the cracking combination with the cracked
+     stiffness, recompute moments (redistribution) and ζ until stable.
+     ζ never decreases (cracks do not close).
+   • Deflection under the quasi-permanent combination (BS EN 1990 Eq. 6.16b).
+   • Shrinkage curvature 1/r_cs = ε_cs·αe·S/I for uncracked and cracked
+     sections, interpolated with ζ (Eqs. 7.21, 7.18), applied as an imposed
+     curvature.  ε_cs = ε_cd,∞ + ε_ca,∞ (§3.1.4, Annex B, cement class N).
+   ================================================================ */
+let gLTSeq=0;
+
+// Section properties per unit width (m). y measured from the bottom face.
+function ltSection(h, Asb, Ast, yb, yt, ae){
+  const n1=ae-1;                                      // steel replaces concrete
+  const A=h+n1*(Asb+Ast);
+  const ybar=(h*h/2+n1*(Asb*yb+Ast*yt))/A;
+  const I1=h*h*h/12+h*(h/2-ybar)**2+n1*(Asb*(ybar-yb)**2+Ast*(yt-ybar)**2);
+  const S1=Asb*(ybar-yb)-Ast*(yt-ybar);                // >0 → sagging shrinkage curvature
+  // Cracked: tension steel At at depth d, compression steel Ac at depth dc
+  // (both measured from the compression face). Neutral axis from
+  //   x²/2 + (αe−1)·Ac·(x−dc) = αe·At·(d−x)
+  function cracked(At,d,Ac,dc){
+    if(!(At>1e-12)) return null;
+    let a=0.5, B=n1*Ac+ae*At, C=-(n1*Ac*dc+ae*At*d);
+    let x=(-B+Math.sqrt(B*B-4*a*C))/(2*a);
+    if(x<dc){ B=ae*At; C=-ae*At*d; x=(-B+Math.sqrt(B*B-4*a*C))/(2*a); Ac=0; }  // Ac not in compression
+    const I2=x*x*x/3+ae*At*(d-x)**2+n1*Ac*(x-dc)**2;
+    const S2=At*(d-x)-Ac*(x-dc);                     // >0 → curvature on the cracked side
+    return {x,I2,S2};
+  }
+  return {I1,ybar,S1, sag:cracked(Asb,h-yb,Ast,h-yt), hog:cracked(Ast,yt,Asb,yb)};
+}
+
+// EC2 Annex B creep coefficient φ(∞,t0) — h0 = h (slab drying from both faces)
+function ec2Creep(fck,h_mm,RH,t0){
+  const fcm=fck+8, h0=h_mm;
+  const base=(1-RH/100)/(0.1*Math.cbrt(h0));
+  const phiRH = fcm<=35 ? 1+base : (1+base*Math.pow(35/fcm,0.7))*Math.pow(35/fcm,0.2);
+  const bfcm=16.8/Math.sqrt(fcm);
+  const bt0=1/(0.1+Math.pow(Math.max(1,t0),0.20));
+  return phiRH*bfcm*bt0;
+}
+// EC2 §3.1.4 / Annex B total shrinkage strain at t = ∞ (cement class N), in ‰
+function ec2Shrinkage(fck,h_mm,RH){
+  const fcm=fck+8, bs1=Math.min(1,Math.pow(35/fcm,0.1));
+  const bRH = RH>=99*bs1 ? 0.25 : 1.55*(1-Math.pow(RH/100,3));
+  const ecd0=0.85*((220+110*4)*Math.exp(-0.12*fcm/10))*1e-6*bRH;        // Eq. B.11 (αds1=4, αds2=0.12)
+  const H=[100,200,300,500], KH=[1.0,0.85,0.75,0.70];                     // Table 3.3
+  let kh=KH[KH.length-1];
+  if(h_mm<=H[0]) kh=KH[0];
+  else for(let i=0;i<H.length-1;i++) if(h_mm<=H[i+1]){ kh=KH[i]+(KH[i+1]-KH[i])*(h_mm-H[i])/(H[i+1]-H[i]); break; }
+  const eca=Math.max(0,2.5*(fck-10)*1e-6);                                // Eq. 3.12
+  return (kh*ecd0+eca)*1000;
+}
+// Node-averaged moments from element-centroid moments m = Db·κ
+function nodalMoments(m,u,DbOf){
+  const nn=m.nn, N=m.elN;
+  const mx=new Float64Array(nn), my=new Float64Array(nn), mxy=new Float64Array(nn), cnt=new Float64Array(nn);
+  for(let i=0;i<m.nEl;i++){
+    const k=elementCurvature(m,i,u), Db=DbOf(i);
+    const a=Db[0]*k[0]+Db[1]*k[1]+Db[2]*k[2], b=Db[3]*k[0]+Db[4]*k[1]+Db[5]*k[2], c=Db[6]*k[0]+Db[7]*k[1]+Db[8]*k[2];
+    for(let q=0;q<4;q++){ const n=N[4*i+q]; mx[n]+=a; my[n]+=b; mxy[n]+=c; cnt[n]++; }
+  }
+  for(let n=0;n<nn;n++) if(cnt[n]>0){ mx[n]/=cnt[n]; my[n]/=cnt[n]; mxy[n]/=cnt[n]; }
+  return {mx,my,mxy};
+}
+// Wood-Armer moments at nodes → mean of each element's four corners
+function elementWA(m,mx,my,mxy){
+  const nn=m.nn, nEl=m.nEl, N=m.elN;
+  const wxb=new Float64Array(nn), wyb=new Float64Array(nn), wxt=new Float64Array(nn), wyt=new Float64Array(nn);
+  for(let n=0;n<nn;n++){ const w=woodArmer(mx[n],my[n],mxy[n]); wxb[n]=w.xb; wyb[n]=w.yb; wxt[n]=w.xt; wyt[n]=w.yt; }
+  const xb=new Float64Array(nEl), yb=new Float64Array(nEl), xt=new Float64Array(nEl), yt=new Float64Array(nEl);
+  for(let i=0;i<nEl;i++) for(let q=0;q<4;q++){ const n=N[4*i+q]; xb[i]+=wxb[n]/4; yb[i]+=wyb[n]/4; xt[i]+=wxt[n]/4; yt[i]+=wyt[n]/4; }
+  return {xb,yb,xt,yt};
+}
+
+async function computeLongTermDefl(r, onStep){
+  const m=r.model;
+  if(!m) throw new Error('Run the main analysis first.');
+  const step=onStep||(()=>{});
+  // Use the current cover / bar / reinforcement inputs even if a live refresh is pending
+  clearTimeout(_liveTimer); designRebar(r);
+  const prov=r.prov;
+  if(!prov) throw new Error('Reinforcement layout not available.');
+  // ── Long-term inputs (read now; a typed 0 is honoured) ───────────────────
+  const phi_creep=Math.max(0,numIn('ltCreep',2.5));
+  const beta =Math.min(1,Math.max(0,numIn('ltBeta',0.5)));
+  const psi2 =Math.min(1,Math.max(0,numIn('ltPsi2',0.3)));
+  const csOn =!!(document.getElementById('ltCsOn')||{checked:true}).checked;
+  const eps_cs=csOn?Math.max(0,numIn('ltCs',0.4))/1000:0;              // input in ‰
+  const iterate=!!(document.getElementById('ltIter')||{checked:true}).checked;
+  const zetaComb=(document.getElementById('ltZetaComb')||{value:'char'}).value;
+  // ── Material & section (values used by the main analysis) ────────────────
+  const fck=r.fck_MPa, h=r.h_mm/1000, cnom=r.cnom_mm/1000, phiB=r.phi_mm/1000;
+  const Ecm=22*Math.pow((fck+8)/10,0.3);                // GPa, Table 3.1
+  const Eeff=Ecm/(1+phi_creep);                         // GPa, Eq. 7.20
+  const Es=200, ae=Es/Eeff, E_kPa=Eeff*1e6;
+  const fctm=ec2Fctm(fck), Mcr=fctm*1000*h*h/6;          // kNm/m (gross section)
+  const nuU=0.2;
+  const yb=cnom+phiB/2, yt=h-cnom-phiB/2;               // steel centroids from the bottom face
+  const Ds=5/6*(E_kPa/(2*(1+nuU)))*h;
+  const nEl=m.nEl;
+  // ── Section properties per element & direction (provided steel) ─────────
+  const P=prov.layers, secX=new Array(nEl), secY=new Array(nEl);
+  let nNoSteel=0;
+  for(let i=0;i<nEl;i++){
+    const e=m.elE[i];
+    secX[i]=ltSection(h,P.xbot.elAs[e]*1e-6,P.xtop.elAs[e]*1e-6,yb,yt,ae);
+    secY[i]=ltSection(h,P.ybot.elAs[e]*1e-6,P.ytop.elAs[e]*1e-6,yb,yt,ae);
+  }
+  const zetaOf=M=>M>Mcr ? Math.max(0,Math.min(1,1-beta*(Mcr/M)**2)) : 0;
+  // Cracking state per element: ζx, ζy and governing face (0 = sagging/bottom, 1 = hogging/top)
+  const zx=new Float64Array(nEl), zy=new Float64Array(nEl), fx=new Uint8Array(nEl), fy=new Uint8Array(nEl);
+  function updateZeta(wa, monotone){
+    let dmax=0;
+    for(let i=0;i<nEl;i++){
+      const gx_=wa.xb[i]>=wa.xt[i]?0:1, gy_=wa.yb[i]>=wa.yt[i]?0:1;
+      let nzx=zetaOf(Math.max(wa.xb[i],wa.xt[i])), nzy=zetaOf(Math.max(wa.yb[i],wa.yt[i]));
+      // no tension steel on the governing face → keep uncracked stiffness (flagged)
+      if(nzx>0 && !(gx_?secX[i].hog:secX[i].sag)){ nzx=0; nNoSteel++; }
+      if(nzy>0 && !(gy_?secY[i].hog:secY[i].sag)){ nzy=0; nNoSteel++; }
+      if(monotone){ nzx=Math.max(nzx,zx[i]); nzy=Math.max(nzy,zy[i]); }
+      dmax=Math.max(dmax,Math.abs(nzx-zx[i]),Math.abs(nzy-zy[i]));
+      zx[i]=nzx; zy[i]=nzy; fx[i]=gx_; fy[i]=gy_;
+    }
+    return dmax;
+  }
+  const Dx=new Float64Array(nEl), Dy=new Float64Array(nEl), DbArr=new Array(nEl);
+  function buildDb(){
+    for(let i=0;i<nEl;i++){
+      const cx=fx[i]?secX[i].hog:secX[i].sag, cy=fy[i]?secY[i].hog:secY[i].sag;
+      const DxU=E_kPa*secX[i].I1/(1-nuU*nuU), DyU=E_kPa*secY[i].I1/(1-nuU*nuU);
+      const DxC=cx?E_kPa*cx.I2:DxU, DyC=cy?E_kPa*cy.I2:DyU;
+      Dx[i]=zx[i]>0?1/(zx[i]/DxC+(1-zx[i])/DxU):DxU;
+      Dy[i]=zy[i]>0?1/(zy[i]/DyC+(1-zy[i])/DyU):DyU;
+      const nu=nuU*(1-(zx[i]+zy[i])/2), Dxy=Math.sqrt(Dx[i]*Dy[i]);
+      DbArr[i]=[Dx[i],nu*Dxy,0,nu*Dxy,Dy[i],0,0,0,(1-nu)/2*Dxy];
+    }
+  }
+  const DbOf=i=>DbArr[i];
+  const comb=(cDL,cSI,cIL,cFL)=>{ const F=new Float64Array(m.ndof);
+    for(let k=0;k<m.ndof;k++) F[k]=cDL*m.F.DL[k]+cSI*m.F.SIDL[k]+cIL*m.F.IL[k]+cFL*m.F.FL[k]; return F; };
+  const cIL=zetaComb==='qp'?psi2:1;
+  const F_crack=comb(1,1,cIL,1);                         // combination that sets the cracking extent
+  const F_qp=comb(1,1,psi2,1);                           // quasi-permanent combination (Eq. 6.16b)
+
+  // ── Pass 0: cracking from the elastic (uncracked) moments of the main run ─
+  step('zeta','CRACKING FROM ELASTIC MOMENTS',null); await yieldFrame();
+  let nm;
+  if(zetaComb==='qp'){
+    const u0=new Float64Array(m.ndof);
+    for(let k=0;k<m.ndof;k++) u0[k]=m.u.DL[k]+m.u.SIDL[k]+psi2*m.u.IL[k]+m.u.FL[k];
+    nm=nodalMoments(m,u0,()=>m.DbMain);
+  } else nm={mx:r.Mx_sls,my:r.My_sls,mxy:r.Mxy_sls};
+  updateZeta(elementWA(m,nm.mx,nm.my,nm.mxy),false);
+  buildDb();
+
+  // ── Iterate: cracked stiffness → redistributed moments → ζ ───────────────
+  // Converged when the peak deflection under the cracking combination changes
+  // by < 0.5 % (ζ itself jumps 0 → 1−β where M first exceeds Mcr, so a single
+  // newly-cracked element would otherwise block convergence).
+  const MAXIT=8, TOL=0.005;
+  let dec=null, it=0, converged=!iterate, lastDz=0, lastDw=0, wPrev=0;
+  const assembleSolveDec=async(label)=>{
+    step('assemble',label+'ASSEMBLING',0);
+    const K=await assembleModelK(m,DbOf,Ds,pct=>step('assemble',label+'ASSEMBLING',pct));
+    step('ldlt',label+'LDLT FACTORISATION',0); await yieldFrame();
+    return await ldltDecomp(K,m.ndof,m.fixed,pct=>step('ldlt',label+'LDLT FACTORISATION',pct),null,m.symLT||(m.symLT={}));
+  };
+  if(iterate){
+    for(it=1;it<=MAXIT;it++){
+      const label=`ITERATION ${it} — `;
+      dec=await assembleSolveDec(label);
+      step('solve',label+'REDISTRIBUTING MOMENTS',null); await yieldFrame();
+      const u=ldltSolve(dec,F_crack,m.ndof);
+      let wMax=0; for(let n=0;n<m.nn;n++) if(r.nodeActive[n]) wMax=Math.max(wMax,Math.abs(u[3*n]));
+      lastDw=wPrev>0?Math.abs(wMax-wPrev)/wMax:1; wPrev=wMax;
+      if(lastDw<TOL){ converged=true; break; }      // keep the ζ that this stiffness was built from
+      const n2=nodalMoments(m,u,DbOf);
+      lastDz=updateZeta(elementWA(m,n2.mx,n2.my,n2.mxy),true);
+      if(lastDz===0){ converged=true; break; }      // nothing changed: current factorisation is final
+      buildDb(); dec=null;
+    }
+    if(it>MAXIT) it=MAXIT;
+  }
+  if(!dec) dec=await assembleSolveDec(iterate?'FINAL — ':'');
+
+  // ── Quasi-permanent deflection + shrinkage curvature ─────────────────────
+  step('solve','SOLVING QUASI-PERMANENT + SHRINKAGE',null); await yieldFrame();
+  const u_qp=ldltSolve(dec,F_qp,m.ndof);
+  let u_cs=null;
+  if(eps_cs>0){
+    // κ_cs per direction (sag-positive), FE sign convention: sagging curvature < 0
+    const kap=i=>{
+      const one=(sec,z,f)=>{
+        const kI=sec.S1/sec.I1, c=f?sec.hog:sec.sag;
+        const kII=c ? (f?-1:1)*c.S2/c.I2 : kI;
+        return eps_cs*ae*(z*kII+(1-z)*kI);
+      };
+      return [-one(secX[i],zx[i],fx[i]), -one(secY[i],zy[i],fy[i]), 0];
+    };
+    u_cs=ldltSolve(dec,curvatureLoad(m,DbOf,kap),m.ndof);
+  }
+  // ── Results ───────────────────────────────────────────────────────────────
+  const nn=r.nn, act=r.nodeActive;
+  const w_load=new Float64Array(nn), w_cs=new Float64Array(nn), w_lt=new Float64Array(nn);
+  for(let n=0;n<nn;n++){
+    w_load[n]=u_qp[3*n]; w_cs[n]=u_cs?u_cs[3*n]:0; w_lt[n]=w_load[n]+w_cs[n];
+  }
+  let iMax=-1, maxW=0;
+  for(let n=0;n<nn;n++){ if(!act[n]) continue; const a=Math.abs(w_lt[n]); if(a>maxW){ maxW=a; iMax=n; } }
+  // ζ map (max of the two directions) and stiffness ratio map, element → node
+  const zN=new Float64Array(nn), cN=new Float64Array(nn);
+  let crackedArea=0, area=0, maxZeta=0;
+  for(let i=0;i<nEl;i++){
+    const z=Math.max(zx[i],zy[i]); if(z>maxZeta) maxZeta=z;
+    const A=r.elArea[m.elE[i]]; area+=A; if(z>0) crackedArea+=A;
+    for(let q=0;q<4;q++){ const n=m.elN[4*i+q]; zN[n]+=z; cN[n]++; }
+  }
+  for(let n=0;n<nn;n++) if(cN[n]>0) zN[n]/=cN[n];
+  return {seq:r.seq, ltSeq:++gLTSeq,
+    w_lt:Array.from(w_lt), w_load:Array.from(w_load), w_cs:Array.from(w_cs), zeta:Array.from(zN),
+    maxW, maxLoad:iMax>=0?Math.abs(w_load[iMax]):0, maxCs:iMax>=0?Math.abs(w_cs[iMax]):0, iMax,
+    phi_creep, beta, psi2, eps_cs, csOn, iterate, zetaComb, iterations:iterate?it:0, converged, lastDz, lastDw,
+    Eeff:Eeff*1000, alpha_e:ae, Mcr, fctm, maxZeta, crackedFrac:area>0?crackedArea/area:0,
+    nNoSteel, mesh:prov.mesh, sag:prov.sag};
+}
+
+// Creep / shrinkage inputs: Annex B values unless the user typed an override
+function ltUpdateCreep(){
+  const fck=numIn('fck',30), h=numIn('thk',250), RH=numIn('ltRH',50), t0=numIn('ltT0',28);
+  const phi=ec2Creep(fck,h,RH,t0), cs=ec2Shrinkage(fck,h,RH);
+  const ce=document.getElementById('ltCreep'), se=document.getElementById('ltCs');
+  if(ce && ce.dataset.manual!=='1') ce.value=phi.toFixed(2);
+  if(se && se.dataset.manual!=='1') se.value=cs.toFixed(3);
+  const ch=document.getElementById('ltCreepHint'), sh=document.getElementById('ltCsHint');
+  if(ch) ch.innerHTML=ce&&ce.dataset.manual==='1'
+    ? `override · Annex B = ${phi.toFixed(2)} <a href="#" onclick="ltResetAuto('ltCreep');return false;">reset</a>`
+    : `Annex B (RH, t₀, h₀=h, f<sub>cm</sub>)`;
+  if(sh) sh.innerHTML=se&&se.dataset.manual==='1'
+    ? `override · EC2 = ${cs.toFixed(3)} <a href="#" onclick="ltResetAuto('ltCs');return false;">reset</a>`
+    : `ε<sub>cd,∞</sub>+ε<sub>ca,∞</sub> (§3.1.4, class N)`;
+}
+function ltManual(id){ const e=document.getElementById(id); if(e){ e.dataset.manual='1'; ltUpdateCreep(); } }
+function ltResetAuto(id){ const e=document.getElementById(id); if(e){ e.dataset.manual=''; ltUpdateCreep(); markLTStale(); } }
+
+async function runLongTerm(opts){
+  opts=opts||{};
+  if(!gRes){                                            // needs a main run first
+    await runFEM();                                      // (which itself runs this when ltAuto is on)
+    if(!gRes || document.getElementById('ltAuto').checked) return;
+  }
   const btn=document.getElementById('ltRunBtn');
   btn.disabled=true;
-
-  // Reset step indicators
-  for(const s of LT_STEPS){
-    const el=document.getElementById('ltstep-'+s);
-    if(el) el.className='prog-step';
-  }
+  for(const s of LT_STEPS){ const el=document.getElementById('ltstep-'+s); if(el) el.className='prog-step'; }
   document.getElementById('ltovl').style.display='flex';
   setLtStep('zeta'); setLtTxt('INITIALISING', 0);
-
-  // Start timer
   const t0=performance.now();
   const timerEl=document.getElementById('ltTimerTxt');
   if(_ltTimerInterval) clearInterval(_ltTimerInterval);
-  _ltTimerInterval=setInterval(()=>{
-    if(timerEl) timerEl.textContent=((performance.now()-t0)/1000).toFixed(1)+' s';
-  },100);
-
-  // Two yields: flush overlay display, then paint
+  _ltTimerInterval=setInterval(()=>{ if(timerEl) timerEl.textContent=((performance.now()-t0)/1000).toFixed(1)+' s'; },100);
   await yieldFrame(); await yieldFrame();
-
   try{
-    gLTRes=await computeLongTermDefl(gRes);
-
-    // Render result
+    gLTRes=await computeLongTermDefl(gRes,(st,msg,pct)=>{ setLtStep(st); setLtTxt(msg,pct); });
     setLtStep('render'); setLtTxt('RENDERING', null); await yieldFrame();
-
-    const w_lt_mm = gLTRes.w_lt.map(w=>-w*1000);
-    // Compute max only over nodes inside the polygon (outside nodes are zero-mode clamped)
-    const maxLT=(()=>{
-      let m=0;
-      for(let i=0;i<w_lt_mm.length;i++){
-        if(gRes.poly && !custPointInPoly(gRes.xC[i],gRes.yC[i],gRes.poly)) continue;
-        const a=Math.abs(w_lt_mm[i]); if(a>m) m=a;
-      }
-      return m;
-    })();
-    const Lspan=gRes.geo ? gRes.geo.Ldiag : Math.hypot(gRes.Lx,gRes.Ly);
-    const Ld=maxLT>0?(Lspan*1000/maxLT).toFixed(0):'∞';
-
-    document.getElementById('sv-ltdefl').innerHTML=
-      maxLT.toFixed(2)+' mm &nbsp;<span style="font-size:0.6rem;color:var(--text-dim)">L/'+Ld+'</span>';
-    document.getElementById('st-ltdefl').style.display='';
-    document.getElementById('sm-ltdefl').style.display='none';
-
-    const ltInfoEl=document.getElementById('ltInfo');
-    if(ltInfoEl){
-      ltInfoEl.style.display='block';
-      ltInfoEl.textContent=`QP combo: Gᵏ×1.0 + ψ₂×Qᵏ (ψ₂=${gLTRes.psi2.toFixed(2)}) · φ=${gLTRes.phi_creep} · Eeff=${gLTRes.Eeff.toFixed(0)} MPa · αe=${gLTRes.alpha_e.toFixed(1)} · Mcr=${gLTRes.Mcr.toFixed(1)} kNm/m · Icr/Iu=${gLTRes.Iratio.toFixed(3)} · maxζ=${gLTRes.maxZeta.toFixed(3)} · δ=${maxLT.toFixed(2)} mm`;
-    }
-
-    // Switch to LT tab — use showTab so mobile dropdown syncs and canvas sizes correctly
-    showTab(document.getElementById('tab-ltdefl'));
-
-    // Re-render now that the panel is visible and canvas has correct dimensions
-    contour('cvLTDefl', gRes, w_lt_mm,
-      `Long-Term Deflection — EC2 QP (ψ₂=${gLTRes.psi2.toFixed(2)}, φ=${gLTRes.phi_creep}, β=${gLTRes.beta}, Icr/Iu=${gLTRes.Iratio.toFixed(3)}) — mm`);
-    // Render Icr/Iu ratio map
-    document.getElementById('sm-icrIu').style.display='none';
-    contour('cvIcrIu', gRes, gLTRes.icrIu,
-      'Icr/Iu Ratio — cracking state per element (0=uncracked, →1=fully cracked)');
-
-    // Mark all done
+    updateDesignStats(gRes); renderRebarSummary(gRes); rebarMeshInfo();
+    showLTResults();
+    if(opts.switchTab!==false) showPanel('ltdefl');
+    else redrawAll();
     for(const s of LT_STEPS){ const el=document.getElementById('ltstep-'+s); if(el) el.className='prog-step done'; }
-    const elapsed=((performance.now()-t0)/1000).toFixed(2);
     setLtTxt('COMPLETE', 100);
-    if(timerEl) timerEl.textContent=elapsed+' s';
-
+    if(timerEl) timerEl.textContent=((performance.now()-t0)/1000).toFixed(2)+' s';
   } catch(e){
     alert('Long-term error:\n'+e.message); console.error(e);
   }
@@ -4558,384 +5229,39 @@ async function runLongTerm(){
   btn.disabled=false;
 }
 
-async function computeLongTermDefl(r){
-  const phi_creep = +document.getElementById('ltCreep').value||2.5;
-  const beta      = +document.getElementById('ltBeta').value||0.5;
-  const fck       = +document.getElementById('fck').value||32;
-  const h_m       = +document.getElementById('thk').value/1000;   // m
-  const nu        = +document.getElementById('nu').value||0.2;
-  const cnom_m    = (+document.getElementById('cnom').value||30)/1000; // m
-  const phi_mm    = +document.getElementById('phi').value||16;    // mm
-
-  // ── EC2 material properties ─────────────────────────────────────────
-  const fctm_MPa = fck<=50 ? 0.30*Math.pow(fck,2/3) : 2.12*Math.log(1+(fck+8)/10);
-  const Ecm_GPa  = 22*Math.pow((fck+8)/10,0.3);
-  const Eeff_GPa = Ecm_GPa/(1+phi_creep);
-  const Eeff_kPa = Eeff_GPa*1e6;   // kN/m²
-  const Es_GPa   = 200;             // steel modulus (GPa)
-  const alpha_e  = Es_GPa/Eeff_GPa; // effective modular ratio αe,eff = Es/Eeff (long-term)
-
-  // ── Section geometry ────────────────────────────────────────────────
-  const h   = h_m;                           // m
-  // d_bot / d_top = effective depths measured from the COMPRESSION face (used in _calcIcr)
-  const d_bot = h - cnom_m - phi_mm/2000;    // effective depth (sagging): from TOP face to bottom steel (m)
-  const d_top = h - cnom_m - phi_mm/2000;    // effective depth (hogging):  from BOTTOM face to top steel (m)
-  // Centroid positions measured from the BOTTOM face — used in _calcIu (ybar reference = bottom)
-  const y_bot_btm = cnom_m + phi_mm/2000;    // bottom steel centroid from bottom face (m)
-  const y_top_btm = h - cnom_m - phi_mm/2000;// top    steel centroid from bottom face (m)
-
-  // ── Cracking moment (based on uncracked elastic Z) ──────────────────
-  const Z   = h**2/6;                        // m³/m
-  const Mcr = fctm_MPa*1000*Z;              // kNm/m
-
-  // ── Poisson ratios ──────────────────────────────────────────────────
-  const nu_u  = 0.2;   // uncracked
-  const nu_cr = 0.0;   // cracked
-
-  // ── Per-element section properties using actual As ──────────────────
-  // As arrays from main analysis (nodal, mm²/m). Interpolate to element centroid.
-  // Bot steel used when M > 0 (sagging); top steel when M < 0 (hogging).
-  // As is in mm²/m → convert to m²/m for structural calcs.
-  // Basic mat As (mm²/m): single mat for top & bottom, plus optional extra sagging bars at bottom
-  const {bot: matAs_bot_mm2, top: matAs_top_mm2} = ltUpdateMatAs();
-  // Provided reinforcement layout (base mesh + zoned additional / deflection bars)
-  const prov = computeProvidedRebar(r);
-
-  function _elAs(ex,ey,ns,isHog){
-    if(prov){
-      const e=ey*r.nx+ex, P=prov.layers;
-      return (isHog ? Math.max(P.xtop.elAs[e],P.ytop.elAs[e])
-                    : Math.max(P.xbot.elAs[e],P.ybot.elAs[e]))*1e-6;
-    }
-    let As_avg=0;
-    if(isHog){
-      if(!r.As_xtop||!r.As_ytop) return Math.max(matAs_top_mm2,0)*1e-6;
-      for(const n of ns) As_avg+=Math.max(r.As_xtop[n],r.As_ytop[n])/4;
-      return Math.max(As_avg, matAs_top_mm2)*1e-6; // top mat floor
-    } else {
-      if(!r.As_xbot||!r.As_ybot) return Math.max(matAs_bot_mm2,0)*1e-6;
-      for(const n of ns) As_avg+=Math.max(r.As_xbot[n],r.As_ybot[n])/4;
-      return Math.max(As_avg, matAs_bot_mm2)*1e-6; // bottom mat + sag bars floor
-    }
+// Stat bar + info box for the current long-term result
+function showLTResults(){
+  const L=gLTRes, st=document.getElementById('st-ltdefl'), sv=document.getElementById('sv-ltdefl');
+  const info=document.getElementById('ltInfo'), btn=document.getElementById('ltRunBtn');
+  if(!L||!gRes){
+    if(st) st.style.display='none';
+    if(info) info.style.display='none';
+    ['sm-ltdefl','sm-icrIu'].forEach(id=>{const e=document.getElementById(id); if(e) e.style.display='';});
+    ['cvLTDefl','cvIcrIu'].forEach(id=>{const c=document.getElementById(id); if(c){ c.getContext('2d').clearRect(0,0,c.width,c.height);} });
+    if(btn) btn.classList.remove('stale');
+    return;
   }
-
-  // Transformed uncracked I (gross section + reinforcement)
-  // ȳ from bottom; steel areas As_bot at y_bot_btm, As_top at y_top_btm
-  // (both positions measured from the BOTTOM face — consistent with ybar reference)
-  function _calcIu(As_bot, As_top){
-    const b=1; // per unit width (m)
-    const Ac=b*h;
-    const denom = Ac + alpha_e*(As_bot+As_top);
-    const ybar  = (Ac*h/2 + alpha_e*(As_bot*y_bot_btm + As_top*y_top_btm)) / denom;
-    const Iu    = b*h**3/12 + Ac*(h/2-ybar)**2
-                + alpha_e*As_bot*(y_bot_btm-ybar)**2
-                + alpha_e*As_top*(y_top_btm-ybar)**2;
-    return{Iu,ybar};
+  const Lspan=gRes.geo ? gRes.geo.Ldiag : Math.hypot(gRes.Lx,gRes.Ly);
+  const dmm=L.maxW*1000, ratio=dmm>0?Lspan*1000/dmm:Infinity;
+  const ok=ratio>=250;
+  const stale=!!L.stale;
+  sv.innerHTML=`${dmm.toFixed(2)} mm <span style="font-size:0.6rem;color:var(--text-dim)">L/${isFinite(ratio)?ratio.toFixed(0):'∞'}</span> `+
+    (stale?'<span class="lc-badge uls">OUT OF DATE</span>':`<span class="lc-badge ${ok?'sls':'uls'}">${ok?'≤ L/250':'> L/250'}</span>`);
+  st.style.display='';
+  ['sm-ltdefl','sm-icrIu'].forEach(id=>{const e=document.getElementById(id); if(e) e.style.display='none';});
+  if(info){
+    info.style.display='block';
+    const cs=L.csOn?`${(L.maxCs*1000).toFixed(2)} mm shrinkage (ε<sub>cs</sub> = ${(L.eps_cs*1000).toFixed(3)}‰)`:'shrinkage off';
+    info.innerHTML=`<strong>δ = ${dmm.toFixed(2)} mm</strong> (L/${isFinite(ratio)?ratio.toFixed(0):'∞'}) = `+
+      `${(L.maxLoad*1000).toFixed(2)} mm load + ${cs}<br>`+
+      `φ = ${L.phi_creep.toFixed(2)} · E<sub>c,eff</sub> = ${(L.Eeff/1000).toFixed(1)} GPa · α<sub>e</sub> = ${L.alpha_e.toFixed(1)} · `+
+      `M<sub>cr</sub> = ${L.Mcr.toFixed(1)} kNm/m · ψ₂ = ${L.psi2.toFixed(2)} · β = ${L.beta}<br>`+
+      `Cracked area ${(L.crackedFrac*100).toFixed(0)}% · max ζ = ${L.maxZeta.toFixed(2)} · ζ from ${L.zetaComb==='qp'?'quasi-permanent':'characteristic'} moments`+
+      (L.iterate?` · ${L.iterations} iteration${L.iterations===1?'':'s'}${L.converged?'':' (not converged)'}`:' · no iteration')+
+      (L.nNoSteel?`<br><span style="color:var(--rubine)">⚠ ${L.nNoSteel} element-direction(s) exceed M<sub>cr</sub> with no tension steel on that face — treated as uncracked.</span>`:'')+
+      (stale?'<br><span style="color:var(--rubine)">Inputs changed — press the button to update.</span>':'');
   }
-
-  // Cracked I — neutral axis by quadratic formula, using tension-face steel only
-  // For sagging: tension at bottom → use As_bot, d=d_bot
-  // For hogging: tension at top → use As_top, d_eff=h-d_top
-  function _calcIcr(As_tens, d_eff){
-    if(As_tens<1e-12) return h**3/12*0.3; // fallback: 30% of gross I
-    const rho = As_tens / (1 * d_eff);    // reinforcement ratio
-    const aer = alpha_e * rho;
-    const x   = d_eff*(-aer + Math.sqrt(aer*aer + 2*aer)); // neutral axis depth
-    const Icr = x**3/3 + alpha_e*As_tens*(d_eff-x)**2;
-    return Icr;
-  }
-
-  const nx=r.nx, ny=r.ny, nn=r.nn;
-  const nid=(i,j)=>j*(nx+1)+i;
-  const dx=r.dx, dy=r.dy;
-  const gx=r.gx, gy=r.gy;   // grid-line coordinates (non-uniform for irregular column grids)
-
-  // ── Per-node signed SLS moment (sign determines sag vs hog) ─────────
-  // Use Mx_sls as representative; FEM sign convention: negative = sagging (tension at bottom)
-  const M_sls_node=new Float64Array(nn);
-  for(let i=0;i<nn;i++){
-    // Use the larger in magnitude, signed by Mx
-    const signMx = r.Mx_sls[i]>=0?1:-1;
-    M_sls_node[i]=signMx*Math.max(Math.abs(r.Mx_sls[i]),Math.abs(r.My_sls[i]));
-  }
-
-  // ── Per-element D_eff via EC2 Eq 7.18/7.19, with As-based I ─────────
-  setLtStep('zeta'); setLtTxt('COMPUTING CRACKING FACTOR ζ', null); await yieldFrame();
-  const D_el   = new Float64Array(nx*ny);
-  const zeta_el= new Float64Array(nx*ny);
-  const icrIu_node=new Float64Array(nn);
-  const icrIu_cnt =new Uint16Array(nn);
-  let maxZeta=0;
-  // Track mean Icr/Iu for display
-  let sumIratio=0, nIratio=0;
-
-  for(let ey=0;ey<ny;ey++) for(let ex=0;ex<nx;ex++){
-    if(r.poly){
-      const _ci=[ex,ex+1,ex+1,ex],_cj=[ey,ey,ey+1,ey+1];
-      const _tl=Math.min(dx,dy)*0.08;
-      let _ins=0; for(let _k=0;_k<4;_k++){const _wx=gx[_ci[_k]],_wy=gy[_cj[_k]];if(custPointInPoly(_wx,_wy,r.poly)||custDistToPoly(_wx,_wy,r.poly)<=_tl)_ins++;}
-      if(_ins<2) continue;
-    }
-    if(r.voids&&r.voids.some(v=>v.closed&&custPointInPoly(0.5*(gx[ex]+gx[ex+1]),0.5*(gy[ey]+gy[ey+1]),v.poly))) continue;
-    const ns=[nid(ex,ey),nid(ex+1,ey),nid(ex+1,ey+1),nid(ex,ey+1)];
-
-    // Signed element moment (average of nodes)
-    const M_avg=(M_sls_node[ns[0]]+M_sls_node[ns[1]]+
-                 M_sls_node[ns[2]]+M_sls_node[ns[3]])/4;
-    const isHog = M_avg > 0;   // positive M = hogging (tension top) — see postProcess sign convention
-
-    // As at element centroid
-    const As_bot = _elAs(ex,ey,ns,false); // m²/m
-    const As_top = _elAs(ex,ey,ns,true);  // m²/m
-
-    // Transformed uncracked I (includes both layers)
-    const {Iu} = _calcIu(As_bot, As_top);
-
-    // Cracked I using tension-side steel only
-    const As_tens = isHog ? As_top : As_bot;
-    const d_eff = isHog ? d_top : d_bot;
-    const Icr_el  = _calcIcr(As_tens, d_eff);
-
-    // D_u and D_c for this element
-    const D_u_el = Eeff_kPa * Iu     / (1-nu_u *nu_u );
-    const D_c_el = Eeff_kPa * Icr_el / (1-nu_cr*nu_cr);
-
-    // Cracking check against unsigned moment magnitude
-    const M_abs = Math.abs(M_avg);
-    let zeta=0;
-    if(M_abs>Mcr){
-      zeta=Math.max(0,Math.min(1, 1-beta*Math.pow(Mcr/M_abs,2)));
-    }
-    zeta_el[ey*nx+ex]=zeta;
-    if(zeta>maxZeta) maxZeta=zeta;
-
-    // EC2 Eq 7.18
-    D_el[ey*nx+ex] = 1/(zeta/D_c_el + (1-zeta)/D_u_el);
-
-    const ratio_el = Iu>0 ? Math.min(1, Icr_el/Iu) : 0;
-    // Distribute element ratio to 4 corner nodes (accumulate then average)
-    for(const nd of ns){ icrIu_node[nd]+=ratio_el; icrIu_cnt[nd]++; }
-    sumIratio+=ratio_el; nIratio++;
-  }
-  const Iratio_mean = nIratio>0 ? sumIratio/nIratio : 0;
-  // Representative global D_u and D_c for display/return (uncracked, no steel)
-  const Iu_gross = h**3/12;
-  const D_u = Eeff_kPa*Iu_gross/(1-nu_u*nu_u);
-  const D_c = Eeff_kPa*(Iu_gross*Iratio_mean)/(1-nu_cr*nu_cr);
-
-  // ── Rebuild K with variable D_eff per element ─────────────────────
-  setLtStep('assemble'); setLtTxt('ASSEMBLING STIFFNESS MATRIX', 0); await yieldFrame();
-  const ndof=nn*3;
-  const K_lt=new Float64Array(ndof*ndof);
-  const g2=[-1/Math.sqrt(3),1/Math.sqrt(3)];
-  // Shear stiffness: Ds = 5/6 · G_eff · h,  G_eff = Eeff/(2(1+ν))
-  const Ds_lt = 5/6 * (Eeff_kPa/(2*(1+nu))) * h_m;
-  const hg=[1,-1,1,-1];
-
-  const ltChunk=Math.max(1,Math.floor(nx*ny/20));
-  let ltElDone=0;
-  for(let ey=0;ey<ny;ey++) for(let ex=0;ex<nx;ex++){
-    // Skip outside polygon using >=2 corner test (matches main solver)
-    if(r.poly){
-      const _ci=[ex,ex+1,ex+1,ex],_cj=[ey,ey,ey+1,ey+1];
-      const _tl=Math.min(dx,dy)*0.08;
-      let _ins=0; for(let _k=0;_k<4;_k++){const _wx=gx[_ci[_k]],_wy=gy[_cj[_k]];if(custPointInPoly(_wx,_wy,r.poly)||custDistToPoly(_wx,_wy,r.poly)<=_tl)_ins++;}
-      if(_ins<2){ ltElDone++; continue; }
-    }
-    if(r.voids&&r.voids.some(v=>v.closed&&custPointInPoly(0.5*(gx[ex]+gx[ex+1]),0.5*(gy[ey]+gy[ey+1]),v.poly))){ ltElDone++; continue; }
-    const ns=[nid(ex,ey),nid(ex+1,ey),nid(ex+1,ey+1),nid(ex,ey+1)];
-    const dofs=[]; for(const nd of ns) dofs.push(3*nd,3*nd+1,3*nd+2);
-    const ke=new Float64Array(144);
-    const xs=[gx[ex],gx[ex+1],gx[ex+1],gx[ex]];
-    const ys=[gy[ey],gy[ey],gy[ey+1],gy[ey+1]];
-    // D_e is the effective plate bending rigidity for this element (kNm)
-    // Use interpolated ν for off-diagonal Db terms: ν_eff = (1-ζ)*ν_u + ζ*ν_cr
-    const D_e=D_el[ey*nx+ex];
-    const zeta_e=zeta_el[ey*nx+ex];
-    const nu_e=(1-zeta_e)*nu_u + zeta_e*nu_cr;  // 0.2→0 as element cracks
-    for(const xi of g2) for(const eta of g2){
-      const s=shd(xi,eta,xs,ys);
-      const Bb=new Float64Array(36);
-      for(let k=0;k<4;k++){
-        Bb[0*12+3*k+1]=s.dx[k]; Bb[1*12+3*k+2]=s.dy[k];
-        Bb[2*12+3*k+1]=s.dy[k]; Bb[2*12+3*k+2]=s.dx[k];
-      }
-      // D_e = E·I_eff/(1-ν²_eff) already; use nu_e for coupling terms
-      const Db=[D_e, D_e*nu_e, 0, D_e*nu_e, D_e, 0, 0, 0, D_e*(1-nu_e)/2];
-      addBb(ke,Bb,Db,s.det);
-    }
-    {
-      const s=shd(0,0,xs,ys);
-      const Bs=new Float64Array(24);
-      for(let k=0;k<4;k++){
-        Bs[0*12+3*k+0]=s.dx[k]; Bs[0*12+3*k+1]=-s.N[k];
-        Bs[1*12+3*k+0]=s.dy[k]; Bs[1*12+3*k+2]=-s.N[k];
-      }
-      addBs(ke,Bs,Ds_lt,s.det*4);
-      const kHG=0.05*Ds_lt*s.det;
-      for(let i=0;i<4;i++) for(let j=0;j<4;j++) ke[3*i*12+3*j]+=kHG*hg[i]*hg[j];
-    }
-    for(let row=0;row<12;row++) for(let col=0;col<12;col++)
-      K_lt[dofs[row]*ndof+dofs[col]]+=ke[row*12+col];
-
-    ltElDone++;
-    if(ltElDone%ltChunk===0||ltElDone===nx*ny){
-      setLtTxt('ASSEMBLING STIFFNESS MATRIX', ltElDone/(nx*ny)*100);
-      await yieldFrame();
-    }
-  }
-
-  // ── Boundary conditions (identical to main solver) ──────────────
-  const fixed_lt=new Set();
-  if(gMode==='edge'){
-    const em={ssss:['SS','SS','SS','SS'],cccc:['C','C','C','C'],cscs:['C','SS','C','SS'],
-              sssf:['SS','SS','F','SS'],cccf:['C','C','F','C'],ccss:['C','SS','SS','C']};
-    applyEdge(fixed_lt,em[gBC]||em['ssss'],nx,ny,nid);
-  } else if(gMode==='custom'){
-    if(r.columns) for(const col of r.columns){
-      const iC=Math.max(0,Math.min(nx,gIdx(gx,col.x)));
-      const jC=Math.max(0,Math.min(ny,gIdx(gy,col.y)));
-      const nd=nid(iC,jC);
-      fixed_lt.add(3*nd); fixed_lt.add(3*nd+1); fixed_lt.add(3*nd+2);
-    }
-    if(r.walls) for(const wall of r.walls){
-      const wLen=Math.hypot(wall.x1-wall.x0,wall.y1-wall.y0);
-      if(wLen<1e-6) continue;
-      const nSampW=Math.max(2,Math.ceil(wLen/Math.min(dx,dy)*3));
-      for(let si=0;si<=nSampW;si++){
-        const wt_=si/nSampW;
-        const wxi=wall.x0+(wall.x1-wall.x0)*wt_;
-        const wyi=wall.y0+(wall.y1-wall.y0)*wt_;
-        const iW=Math.max(0,Math.min(nx,gIdx(gx,wxi)));
-        const jW=Math.max(0,Math.min(ny,gIdx(gy,wyi)));
-        fixed_lt.add(3*nid(iW,jW));
-      }
-    }
-  } else {
-    const et=v('colEdge');
-    if(et==='fixed') applyEdge(fixed_lt,['C','C','C','C'],nx,ny,nid);
-    else if(et==='ss') applyEdge(fixed_lt,['SS','SS','SS','SS'],nx,ny,nid);
-    if(r.columns) for(const col of r.columns){
-      const iC=Math.min(nx,Math.max(0,gIdx(gx,col.x)));
-      const jC=Math.min(ny,Math.max(0,gIdx(gy,col.y)));
-      const nd=nid(iC,jC);
-      fixed_lt.add(3*nd); fixed_lt.add(3*nd+1); fixed_lt.add(3*nd+2);
-    }
-  }
-
-  // ── SLS force vector (DL + SIDL + IL, factors = 1.0) ─────────────
-  const F_SLS_lt=new Float64Array(ndof);
-  const g2b=[-1/Math.sqrt(3),1/Math.sqrt(3)];
-  function buildFvecLT(q,lt,lc){
-    const F=new Float64Array(ndof);
-    if(!q) return F;
-    if(lt==='perimeter'){
-      if(r.poly&&Array.isArray(r.poly)&&r.poly.length>=3){
-        // Custom polygon: walk boundary edges with trapezoidal weighting (same as main solver)
-        for(let pi=0;pi<r.poly.length;pi++){
-          const p0=r.poly[pi],p1=r.poly[(pi+1)%r.poly.length];
-          const eLen=Math.hypot(p1.x-p0.x,p1.y-p0.y);
-          const nSamp=Math.max(2,Math.ceil(eLen/Math.min(dx,dy)*2));
-          for(let si=0;si<=nSamp;si++){
-            const t=si/nSamp;
-            const px=p0.x+(p1.x-p0.x)*t, py=p0.y+(p1.y-p0.y)*t;
-            const ic=Math.max(0,Math.min(nx,gIdx(gx,px)));
-            const jc=Math.max(0,Math.min(ny,gIdx(gy,py)));
-            const tw=(si===0||si===nSamp)?0.5:1;
-            F[3*nid(ic,jc)]+=q*(eLen/nSamp)*tw;
-          }
-        }
-      } else {
-        for(let ex=0;ex<nx;ex++){F[3*nid(ex,0)]+=q*(gx[ex+1]-gx[ex])/2;F[3*nid(ex+1,0)]+=q*(gx[ex+1]-gx[ex])/2;}
-        for(let ex=0;ex<nx;ex++){F[3*nid(ex,ny)]+=q*(gx[ex+1]-gx[ex])/2;F[3*nid(ex+1,ny)]+=q*(gx[ex+1]-gx[ex])/2;}
-        for(let ey=0;ey<ny;ey++){F[3*nid(0,ey)]+=q*(gy[ey+1]-gy[ey])/2;F[3*nid(0,ey+1)]+=q*(gy[ey+1]-gy[ey])/2;}
-        for(let ey=0;ey<ny;ey++){F[3*nid(nx,ey)]+=q*(gy[ey+1]-gy[ey])/2;F[3*nid(nx,ey+1)]+=q*(gy[ey+1]-gy[ey])/2;}
-      }
-      return F;
-    }
-    if(lt==='central'){
-      F[3*nid(gIdx(gx,r.Lx/2),gIdx(gy,r.Ly/2))]+=q;
-      return F;
-    }
-    for(let ey=0;ey<ny;ey++) for(let ex=0;ex<nx;ex++){
-      if(r.poly && !custPointInPoly(0.5*(gx[ex]+gx[ex+1]),0.5*(gy[ey]+gy[ey+1]),r.poly)) continue;
-      if(r.voids&&r.voids.some(v=>v.closed&&custPointInPoly(0.5*(gx[ex]+gx[ex+1]),0.5*(gy[ey]+gy[ey+1]),v.poly))) continue;
-      const ns=[nid(ex,ey),nid(ex+1,ey),nid(ex+1,ey+1),nid(ex,ey+1)];
-      const dofs2=[]; for(const nd of ns) dofs2.push(3*nd,3*nd+1,3*nd+2);
-      const xs=[gx[ex],gx[ex+1],gx[ex+1],gx[ex]];
-      const ys=[gy[ey],gy[ey],gy[ey+1],gy[ey+1]];
-      for(const xi of g2b) for(const eta of g2b){
-        const s=shd(xi,eta,xs,ys);
-        applyLoadLC(F,dofs2,s.N,s.det,q,xs,ys,lt,lc);
-      }
-    }
-    return F;
-  }
-  const Fdl=buildFvecLT(lcv('dl','qval'), gLoadType['dl'],  'dl');
-  const Fsi=buildFvecLT(lcv('sidl','qval'),gLoadType['sidl'],'sidl');
-  const Fil=buildFvecLT(lcv('il','qval'), gLoadType['il'],  'il');
-  // FL: combined UDL + perimeter for long-term SLS
-  const qFL_udl_lt =+(document.getElementById('fl-qudl').value)||0;
-  const qFL_perim_lt=+(document.getElementById('fl-qperim').value)||0;
-  const Ffl=new Float64Array(ndof);
-  if(qFL_udl_lt){
-    for(let ey=0;ey<ny;ey++) for(let ex=0;ex<nx;ex++){
-      if(r.poly && !custPointInPoly(0.5*(gx[ex]+gx[ex+1]),0.5*(gy[ey]+gy[ey+1]),r.poly)) continue;
-      if(r.voids&&r.voids.some(v=>v.closed&&custPointInPoly(0.5*(gx[ex]+gx[ex+1]),0.5*(gy[ey]+gy[ey+1]),v.poly))) continue;
-      const ns=[nid(ex,ey),nid(ex+1,ey),nid(ex+1,ey+1),nid(ex,ey+1)];
-      const dofs2=[]; for(const nd of ns) dofs2.push(3*nd,3*nd+1,3*nd+2);
-      const xs=[gx[ex],gx[ex+1],gx[ex+1],gx[ex]];
-      const ys=[gy[ey],gy[ey],gy[ey+1],gy[ey+1]];
-      for(const xi of g2b) for(const eta of g2b){
-        const s=shd(xi,eta,xs,ys);
-        for(let k=0;k<4;k++) Ffl[dofs2[3*k]]+=s.N[k]*qFL_udl_lt*s.det;
-      }
-    }
-  }
-  if(qFL_perim_lt){
-    if(r.poly&&Array.isArray(r.poly)&&r.poly.length>=3){
-      // Custom polygon boundary — trapezoidal weighting
-      for(let pi=0;pi<r.poly.length;pi++){
-        const p0=r.poly[pi],p1=r.poly[(pi+1)%r.poly.length];
-        const eLen=Math.hypot(p1.x-p0.x,p1.y-p0.y);
-        const nSamp=Math.max(2,Math.ceil(eLen/Math.min(dx,dy)*2));
-        for(let si=0;si<=nSamp;si++){
-          const t=si/nSamp;
-          const px=p0.x+(p1.x-p0.x)*t,py=p0.y+(p1.y-p0.y)*t;
-          const ic=Math.max(0,Math.min(nx,gIdx(gx,px)));
-          const jc=Math.max(0,Math.min(ny,gIdx(gy,py)));
-          const tw=(si===0||si===nSamp)?0.5:1;
-          Ffl[3*nid(ic,jc)]+=qFL_perim_lt*(eLen/nSamp)*tw;
-        }
-      }
-    } else {
-      for(let ex=0;ex<nx;ex++){Ffl[3*nid(ex,0)]+=qFL_perim_lt*(gx[ex+1]-gx[ex])/2;Ffl[3*nid(ex+1,0)]+=qFL_perim_lt*(gx[ex+1]-gx[ex])/2;}
-      for(let ex=0;ex<nx;ex++){Ffl[3*nid(ex,ny)]+=qFL_perim_lt*(gx[ex+1]-gx[ex])/2;Ffl[3*nid(ex+1,ny)]+=qFL_perim_lt*(gx[ex+1]-gx[ex])/2;}
-      for(let ey=0;ey<ny;ey++){Ffl[3*nid(0,ey)]+=qFL_perim_lt*(gy[ey+1]-gy[ey])/2;Ffl[3*nid(0,ey+1)]+=qFL_perim_lt*(gy[ey+1]-gy[ey])/2;}
-      for(let ey=0;ey<ny;ey++){Ffl[3*nid(nx,ey)]+=qFL_perim_lt*(gy[ey+1]-gy[ey])/2;Ffl[3*nid(nx,ey+1)]+=qFL_perim_lt*(gy[ey+1]-gy[ey])/2;}
-    }
-  }
-  // ── Quasi-permanent combination: G_k×1.0 + ψ₂×Q_k (BS EN 1990 Eq. 6.16b) ─
-  const psi2 = Math.max(0, Math.min(1, +document.getElementById('ltPsi2').value || 0.3));
-  // G_k (DL+SIDL+FL) × 1.0 + ψ₂ × Q_k (IL only) — BS EN 1990 Eq. 6.16b
-  for(let i=0;i<ndof;i++) F_SLS_lt[i] = Fdl[i] + Fsi[i] + Ffl[i] + psi2*Fil[i];
-
-  // ── Solve ─────────────────────────────────────────────────────────
-  setLtStep('ldlt'); setLtTxt('LDLT FACTORISATION', 0); await yieldFrame();
-  const dec_lt=await ldltDecomp(K_lt,ndof,fixed_lt,(pct)=>{
-    setLtTxt('LDLT FACTORISATION', pct);
-  });
-  setLtStep('solve'); setLtTxt('SOLVING', null); await yieldFrame();
-  const u_lt=ldltSolve(dec_lt,F_SLS_lt,ndof);
-
-  // w_lt: deflection in metres (positive = downward in our sign convention)
-  const w_lt=Array.from(u_lt.filter((_,i)=>i%3===0));
-  // Finalise nodal Icr/Iu (average across contributing elements)
-  const icrIu_vals=new Float64Array(nn);
-  for(let i=0;i<nn;i++) icrIu_vals[i]=icrIu_cnt[i]>0 ? icrIu_node[i]/icrIu_cnt[i] : 0;
-  return{w_lt,phi_creep,beta,psi2,Iratio:Iratio_mean,Eeff:Eeff_GPa*1000,maxZeta,
-         fctm_MPa,Mcr,D_u,D_c,alpha_e,d_bot_m:d_bot,d_top_m:d_top,
-         icrIu:Array.from(icrIu_vals)};
+  if(btn){ btn.classList.toggle('stale',stale); btn.innerHTML=stale?'⟳ UPDATE LONG-TERM DEFLECTION':'⏱ COMPUTE LONG-TERM DEFLECTION'; }
 }
 
 /* ================================================================
@@ -5492,7 +5818,13 @@ function custRedraw(){
   ctx.fillText('Scroll to zoom · Middle-drag or Space+drag to pan', W-8, H-8);
 }
 
+// Signature of the custom layout, to detect edits made after an analysis run
+function custGeomSig(){
+  return JSON.stringify([gCustBoundary,gCustClosed,gCustColumns,gCustWalls,gCustVoids.filter(v=>v.closed),
+    numIn('custLx',18),numIn('custLy',18),numIn('custColCx',400),numIn('custColCy',400)]);
+}
 function custUpdateSummary(){
+  if(gRes && gRes.mode==='custom' && gRes.custSig!==custGeomSig()) markResultsStale();
   const el=document.getElementById('custSummary');
   if(!el) return;
   if(!gCustClosed){
@@ -5588,19 +5920,6 @@ function custMobTab(tab){
     setTimeout(()=>{ _custResizeCvs(); custRedraw(); },50);
   }
 }
-// Mouse wheel scrolls between tabs on desktop
-(function(){
-  const row=document.getElementById('tabRow');
-  if(!row) return;
-  row.addEventListener('wheel',function(e){
-    e.preventDefault();
-    const tabs=Array.from(row.querySelectorAll('.tab:not([style*="display:none"])'));
-    if(!tabs.length) return;
-    const cur=tabs.findIndex(t=>t.classList.contains('on'));
-    const next=Math.max(0,Math.min(tabs.length-1, cur+(e.deltaY>0?1:-1)));
-    if(next!==cur) showTab(tabs[next]);
-  },{passive:false});
-})();
 
 // ── Init (called once from setMode) ──────────────────────────────────
 function custInit(){
@@ -5694,67 +6013,6 @@ function custGetGeometry(){
    INIT
    ================================================================ */
 window.addEventListener('resize',()=>{if(gRes) redrawAll();});
-/* ── EC2 Annex B creep coefficient calculator ──────────────────────────────
-   Called whenever RH or t₀ change; updates the φ field automatically.
-   φ(∞,t₀) = φ_RH · β(fcm) · β(t₀)
-   φ_RH accounts for humidity; β(fcm) for strength; β(t₀) for age at loading. */
-function ltUpdateMatAs(){
-  // Basic mat (top and bottom)
-  const phi = +document.getElementById('ltMatPhi').value||12;
-  const sp  = +document.getElementById('ltMatSpacing').value||200;
-  const AsMat = Math.PI*(phi/2)**2/sp*1000; // mm²/m
-  // Additional sagging bars (bottom only)
-  const sagPhi = +document.getElementById('ltSagPhi').value||0;
-  const sagSp  = +document.getElementById('ltSagSpacing').value||200;
-  const AsSag  = sagPhi>0 ? Math.PI*(sagPhi/2)**2/sagSp*1000 : 0; // mm²/m
-  const AsBot  = AsMat + AsSag;
-  const AsTop  = AsMat;
-  const elMat=document.getElementById('ltMatAsVal');
-  const elBot=document.getElementById('ltMatAsValBot');
-  const elTop=document.getElementById('ltMatAsValTop');
-  if(elMat) elMat.textContent=Math.round(AsMat);
-  if(elBot) elBot.textContent=Math.round(AsBot);
-  if(elTop) elTop.textContent=Math.round(AsTop);
-  return{bot:AsBot, top:AsTop};
-}
-// Recalculate whenever inputs change
-document.addEventListener('DOMContentLoaded',function(){
-  ltUpdateMatAs();
-});
-
-
-function ltUpdateCreep(){
-  const fck = +document.getElementById('fck').value||32;
-  const fcm = fck+8;
-  const h_mm= +document.getElementById('thk').value||250;
-  const RH  = +document.getElementById('ltRH').value||50;
-  const t0  = Math.max(1,+document.getElementById('ltT0').value||28);
-
-  // Notional size h0 = 2Ac/u = h for slab exposed both faces (mm)
-  const h0 = h_mm;
-
-  // φ_RH — relative humidity factor (EC2 Annex B, Eq B.3a/b)
-  const base = (1 - RH/100) / (0.1 * Math.cbrt(h0));
-  let phi_RH;
-  if(fcm <= 35){
-    phi_RH = 1 + base;
-  } else {
-    const alpha1 = Math.pow(35/fcm, 0.7);
-    const alpha2 = Math.pow(35/fcm, 0.2);
-    phi_RH = (1 + base*alpha1)*alpha2;
-  }
-
-  // β(fcm) — strength factor (EC2 Annex B, Eq B.4)
-  const beta_fcm = 16.8 / Math.sqrt(fcm);
-
-  // β(t₀) — age at loading factor (EC2 Annex B, Eq B.5)
-  const beta_t0 = 1 / (0.1 + Math.pow(t0, 0.20));
-
-  const phi = phi_RH * beta_fcm * beta_t0;
-  const el = document.getElementById('ltCreep');
-  if(el) el.value = phi.toFixed(2);
-}
-
 /* ── Mobile controls overlay ─────────────────────────────────────────────── */
 // Inject FAB and show mobile tab selector on mobile
 (function(){
@@ -5765,17 +6023,7 @@ function ltUpdateCreep(){
   // CSS media query handles mobTabSelect visibility
 })();
 
-function mobSwitchTab(val){
-  const tab=document.querySelector('.tab[data-p="'+val+'"]');
-  if(tab) showTab(tab);
-}
-// Sync dropdown when tab changes — patched onto showTab via a post-call hook
-// We don't wrap showTab (avoids hoisting/recursion issues) — instead we update
-// the dropdown inside the existing showTab via a side-channel flag.
-const _mobSyncTab=(p)=>{
-  const sel=document.getElementById('mobTabSelect');
-  if(sel&&p) sel.value=p;
-};
+function mobSwitchTab(val){ showPanel(val); }
 
 function mobToggleSidebar(){
   const sb=document.querySelector('.sidebar');
@@ -5806,10 +6054,20 @@ document.addEventListener('DOMContentLoaded',function(){
 });
 
 
+buildNav();
+showPanel('mesh');
 applyMat();  // sync E, nu, fck from concrete grade on load
 updateUI();
 drawPreview(colP());
 calcSW();
+ltUpdateCreep();
+rebarMeshInfo();
+// Any edit to an analysis input marks the results out of date (see _onInputEdit)
+['input','change'].forEach(ev=>document.querySelector('.sidebar').addEventListener(ev,_onInputEdit));
+document.addEventListener('DOMContentLoaded',()=>{   // the layout editor is declared after this script
+  ['input','change'].forEach(ev=>document.getElementById('custModal').addEventListener(ev,()=>{
+    if(gRes&&gRes.mode==='custom'&&gRes.custSig!==custGeomSig()) markResultsStale(); }));
+});
 </script>
 <!-- Custom Layout Editor Modal -->
 <div id="custModal">
