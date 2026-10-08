@@ -409,6 +409,7 @@
   .statmsg{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;color:var(--text-dim);}
   .statmsg .ico{font-size:2.5rem;margin-bottom:10px;opacity:0.25;}
   .statmsg p{font-family:Arial,sans-serif;font-weight:700;font-size:0.65rem;letter-spacing:1px;text-transform:uppercase;}
+  .twrap .statmsg{left:auto;top:auto;}
 
   /* Tables */
   .twrap{flex:1;overflow:auto;padding:18px;}
@@ -1015,10 +1016,6 @@
           Each bay is meshed separately so every column sits on a node.
         </div>
       </div>
-      <div class="row2">
-        <div class="fld"><label>Column cx (mm)</label><input type="number" id="colCx" value="400" step="50" min="100" oninput="updateUI()"></div>
-        <div class="fld"><label>Column cy (mm)</label><input type="number" id="colCy" value="400" step="50" min="100" oninput="updateUI()"></div>
-      </div>
       <div class="fld">
         <label>Slab Edge Condition</label>
         <select id="colEdge">
@@ -1031,11 +1028,44 @@
       <div id="colPreview"><canvas id="prevCvs" width="294" height="155"></canvas></div>
     </div>
 
+    <!-- Column supports (column grid + custom layouts) -->
+    <div id="colSupPanel" style="display:none">
+      <div class="subhd">Column supports</div>
+      <div class="row2">
+        <div class="fld"><label>Column cx (mm)</label><input type="number" id="colCx" value="400" step="50" min="100" oninput="colSupChanged()"></div>
+        <div class="fld"><label>Column cy (mm)</label><input type="number" id="colCy" value="400" step="50" min="100" oninput="colSupChanged()"></div>
+      </div>
+      <div class="fld">
+        <label>Column–slab connection</label>
+        <select id="colModel" onchange="colSupChanged()">
+          <option value="elastic" selected>Elastic — column stiffness (size &amp; height)</option>
+          <option value="rigid">Rigid — rotations fully fixed</option>
+          <option value="pinned">Pinned — no moment transfer</option>
+        </select>
+      </div>
+      <div id="colElastic">
+        <div class="row2">
+          <div class="fld"><label>Storey height below (m)</label><input type="number" id="colHb" value="3.5" step="0.25" min="0" oninput="colSupChanged()"></div>
+          <div class="fld"><label>Height above (m) <span style="font-weight:400;font-size:0.58rem">0 = roof</span></label><input type="number" id="colHa" value="3.5" step="0.25" min="0" oninput="colSupChanged()"></div>
+        </div>
+        <div class="fld">
+          <label>Column far ends</label>
+          <select id="colFar" onchange="colSupChanged()">
+            <option value="fixed" selected>Fixed — 4EI/H</option>
+            <option value="pinned">Pinned — 3EI/H</option>
+          </select>
+        </div>
+      </div>
+      <label class="chk"><input type="checkbox" id="colFoot" checked onchange="colSupChanged()"> Rigid column footprint (cx × cy)</label>
+      <div class="ibox" id="colSupInfo" style="font-size:0.62rem;color:var(--text-dim);line-height:1.7;">—</div>
+    </div>
+
     <!-- Custom layout panel — summary + open button -->
     <div id="custPanel" style="display:none">
       <div class="ibox" id="custSummary" style="font-size:0.65rem;color:var(--text-dim);line-height:1.9;">
         No layout defined yet.
       </div>
+      <canvas id="custPrevCvs" width="294" height="170" style="width:100%;display:block;margin-top:6px;border:1px solid var(--mgrey);"></canvas>
       <button class="run-btn" onclick="custOpenModal()"
               style="font-size:0.65rem;padding:10px 14px;margin-top:6px;background:var(--purple);">
         ✏ OPEN LAYOUT EDITOR
@@ -1247,7 +1277,7 @@
     <div style="padding:12px 16px 10px;font-family:Arial,sans-serif;font-size:0.58rem;color:var(--text-dim);line-height:1.9;">
       Mindlin-Reissner thick plate · Q4 elements<br>
       Reduced shear integration + hourglass stabilisation<br>
-      Banded LDLT solver · up to 50,000 elements<br>
+      Envelope LDLT solver · up to 50,000 elements<br>
       3 load cases (DL/SIDL/IL) · ULS &amp; SLS combinations
     </div>
     <div style="height:4px;background:linear-gradient(to right, var(--rubine), var(--blush), var(--purple));"></div>
@@ -1459,17 +1489,20 @@
       </div>
     </div>
 
-    <!-- Column reactions -->
+    <!-- Support reactions (columns and walls) -->
     <div class="vpanel" id="p-react">
       <div class="twrap">
         <div class="statmsg" id="sm-react"
              style="position:relative;transform:none;margin:50px auto;text-align:center;">
-          <div class="ico">🏛️</div><p>NO COLUMN SUPPORTS DEFINED</p>
+          <div class="ico">🏛️</div><p>NO COLUMN OR WALL SUPPORTS</p>
         </div>
         <table id="reactTbl" class="pcol" style="display:none">
-          <thead><tr><th>Col</th><th>Grid</th><th>x (m)</th><th>y (m)</th>
-            <th>ULS R (kN)</th><th>SLS R (kN)</th><th>% Total (ULS)</th></tr></thead>
+          <thead><tr><th>Support</th><th>Ref</th><th>x (m)</th><th>y (m)</th>
+            <th>ULS R (kN)</th><th>SLS R (kN)</th><th>% Total (ULS)</th>
+            <th title="Moment transferred to the column from bending in x (rotation ∂w/∂x), ULS">M<sub>x</sub> ULS (kNm)</th>
+            <th title="Moment transferred to the column from bending in y (rotation ∂w/∂y), ULS">M<sub>y</sub> ULS (kNm)</th></tr></thead>
           <tbody id="reactBody"></tbody>
+          <caption id="reactCap" style="caption-side:bottom;text-align:left;font-size:0.62rem;color:var(--text-dim);padding-top:8px;line-height:1.6;"></caption>
           <tfoot id="reactFoot"></tfoot>
         </table>
       </div>
@@ -1511,7 +1544,7 @@
     <div class="st"><span class="stl">Rebar Estimate</span><span class="stv" id="sv-rebar" style="color:var(--purple)">—</span></div>
     <div class="st"><span class="stl">Selfweight (DL)</span><span class="stv" id="sv-dl-breakdown" style="color:var(--purple)">—</span></div>
     <div class="st" id="colRst" style="display:none">
-      <span class="stl">Total Col Reactions</span>
+      <span class="stl">Total Reactions</span>
       <span class="stv" style="color:#554996" id="sv-cr">—</span>
     </div>
   </div>
@@ -1948,6 +1981,7 @@ function setMode(m){
   document.getElementById('edgePanel').style.display =m==='edge'?'block':'none';
   document.getElementById('colPanel').style.display  =m==='column'?'block':'none';
   document.getElementById('custPanel').style.display =m==='custom'?'block':'none';
+  document.getElementById('colSupPanel').style.display=m==='edge'?'none':'block';
   document.getElementById('mE').className='mbtn'+(m==='edge'?' ae':'');
   document.getElementById('mC').className='mbtn'+(m==='column'?' ac':'');
   document.getElementById('mX').className='mbtn'+(m==='custom'?' ac':'');
@@ -1998,7 +2032,7 @@ const NAV=[
   {g:'rebar',  label:'Reinforcement',    items:[{p:'rebar',l:'Summary & estimate'},
      {sep:'Required'},{p:'asxb',l:'Bottom X'},{p:'asyb',l:'Bottom Y'},{p:'asxt',l:'Top X'},{p:'asyt',l:'Top Y'},
      {sep:'Provided'},{p:'pvxb',l:'Bottom X'},{p:'pvyb',l:'Bottom Y'},{p:'pvxt',l:'Top X'},{p:'pvyt',l:'Top Y'}]},
-  {g:'tables', label:'Tables',           items:[{p:'react',l:'Column reactions'},{p:'table',l:'Data table'}]},
+  {g:'tables', label:'Tables',           items:[{p:'react',l:'Support reactions'},{p:'table',l:'Data table'}]},
 ];
 const NAV_OF={}; NAV.forEach(gr=>{ let sep=''; gr.items.forEach(it=>{ if(it.sep) sep=it.sep; else NAV_OF[it.p]={g:gr.g,sep,l:it.l}; }); });
 const _navLast={};
@@ -2104,18 +2138,47 @@ function uniformGrid(L,n){
   for(let i=0;i<=n;i++) g[i]=L*i/n;
   return g;
 }
-// Subdivide each span into ~elSize elements; returns grid-line coords + bay node indices
-function bayGrid(spans,elSize){
-  const divs=spans.map(s=>Math.max(1,Math.round(s/elSize)));
+// Subdivide each span into ~elSize elements; returns grid-line coords + bay node indices.
+// With half > 0 (rigid column footprints) lines are also placed at the column
+// faces, half either side of every grid line, so the footprint is resolved
+// whatever the element size.
+function bayGrid(spans,elSize,half=0){
+  const segs=spans.map(s=>(half>0&&2*half<s-1e-9)?[half,s-2*half,half]:[s]);
+  const sdiv=segs.map(sg=>sg.map(l=>Math.max(1,Math.round(l/elSize))));
+  const divs=sdiv.map(a=>a.reduce((p,q)=>p+q,0));
   const n=divs.reduce((a,b)=>a+b,0);
   const g=new Float64Array(n+1);
   const bayIdx=[0];
   let k=0, x0=0;
   spans.forEach((s,b)=>{
-    for(let e=1;e<=divs[b];e++) g[k+e]=x0+s*e/divs[b];
-    k+=divs[b]; x0+=s; g[k]=x0; bayIdx.push(k);
+    let xa=x0;
+    segs[b].forEach((l,q)=>{ const m=sdiv[b][q]; for(let e=1;e<=m;e++) g[k+e]=xa+l*e/m; k+=m; xa+=l; });
+    x0+=s; g[k]=x0; bayIdx.push(k);
   });
   return{g,n,divs,bayIdx};
+}
+// Grid lines for a custom layout over [0, L]. Hard lines (column centres and
+// faces) are always kept; soft lines (outline and void corners, wall ends) are
+// kept unless within a quarter element of another line. Each interval is then
+// split into ≈ elSize elements, so columns sit exactly on nodes and straight
+// edges follow grid lines.
+function meshLines(L,elSize,hard,soft){
+  const tH=Math.min(0.02,0.05*elSize), tS=0.25*elSize;
+  const lines=[0];
+  for(const x of hard.filter(x=>x>tH&&x<L-tH).sort((a,b)=>a-b))
+    if(x-lines[lines.length-1]>tH) lines.push(x);
+  lines.push(L);
+  const hardN=lines.length;
+  for(const x of soft.filter(x=>x>tS&&x<L-tS).sort((a,b)=>a-b))
+    if(lines.every(y=>Math.abs(x-y)>tS)) lines.push(x);
+  if(lines.length>hardN) lines.sort((a,b)=>a-b);
+  const g=[0];
+  for(let i=1;i<lines.length;i++){
+    const a=lines[i-1], b=lines[i], n=Math.max(1,Math.round((b-a)/elSize));
+    for(let e=1;e<n;e++) g.push(a+(b-a)*e/n);
+    g.push(b);
+  }
+  return Float64Array.from(g);
 }
 // Index of the grid line nearest to x (g sorted ascending)
 function gIdx(g,x){
@@ -2140,18 +2203,35 @@ function gCell(g,x){
 function getMeshDivs(){
   // Compute integer nx,ny and grid-line coordinates from element size and geometry
   const elSize = Math.max(0.05, +v('elSize'));
+  const range=g=>{ let a=Infinity,b=0; for(let i=1;i<g.length;i++){ const d=g[i]-g[i-1]; if(d<a) a=d; if(d>b) b=d; } return [a,b]; };
   if(gMode==='column'){
-    const c=colP();
-    const bxg=bayGrid(c.bx,elSize), byg=bayGrid(c.by,elSize);
+    const c=colP(), ci=colSupportInputs();
+    const bxg=bayGrid(c.bx,elSize,ci.foot?ci.cx/2:0), byg=bayGrid(c.by,elSize,ci.foot?ci.cy/2:0);
     const nx=bxg.n, ny=byg.n;
+    const [minDx,maxDx]=range(bxg.g), [minDy,maxDy]=range(byg.g);
     return{nx, ny, gx:bxg.g, gy:byg.g, divsX:bxg.divs, divsY:byg.divs,
       bayIdxX:bxg.bayIdx, bayIdxY:byg.bayIdx,
-      actualDx:c.Lx/nx, actualDy:c.Ly/ny,
-      minDx:Math.min(...c.bx.map((s,i)=>s/bxg.divs[i])), maxDx:Math.max(...c.bx.map((s,i)=>s/bxg.divs[i])),
-      minDy:Math.min(...c.by.map((s,i)=>s/byg.divs[i])), maxDy:Math.max(...c.by.map((s,i)=>s/byg.divs[i]))};
+      actualDx:c.Lx/nx, actualDy:c.Ly/ny, minDx, maxDx, minDy, maxDy};
   }
   let Lx,Ly;
   if(gMode==='custom'){
+    const bb=custBBox();
+    if(bb&&bb.w>0&&bb.h>0){
+      // Lines through the columns (and their faces), outline / void corners and wall ends
+      const ci=colSupportInputs(), hx=[], hy=[], sx=[], sy=[];
+      const soft=(x,y)=>{ sx.push(x-bb.x0); sy.push(y-bb.y0); };
+      for(const p of gCustBoundary) soft(p.x,p.y);
+      for(const v of gCustVoids) if(v.closed) for(const p of v.poly) soft(p.x,p.y);
+      for(const w of gCustWalls){ soft(w.x0,w.y0); soft(w.x1,w.y1); }
+      for(const c of gCustColumns){
+        hx.push(c.x-bb.x0); hy.push(c.y-bb.y0);
+        if(ci.foot){ hx.push(c.x-bb.x0-ci.cx/2,c.x-bb.x0+ci.cx/2); hy.push(c.y-bb.y0-ci.cy/2,c.y-bb.y0+ci.cy/2); }
+      }
+      const gx=meshLines(bb.w,elSize,hx,sx), gy=meshLines(bb.h,elSize,hy,sy);
+      const nx=gx.length-1, ny=gy.length-1;
+      const [minDx,maxDx]=range(gx), [minDy,maxDy]=range(gy);
+      return{nx, ny, gx, gy, actualDx:bb.w/nx, actualDy:bb.h/ny, minDx, maxDx, minDy, maxDy};
+    }
     Lx=+(document.getElementById('custLx')||{value:18}).value||18;
     Ly=+(document.getElementById('custLy')||{value:18}).value||18;
   } else {
@@ -2170,14 +2250,14 @@ function updateUI(){
   const tEst=Math.max(0.05,ndof*bwEst*bwEst/5e8).toFixed(1);
   const warn=els>20000?' ⚠ large mesh':'';
   const f2=x=>isFinite(x)?x.toFixed(2):'?';
+  const rng=(a,b)=>Math.abs(a-b)<1e-9?f2(a):`${f2(a)}–${f2(b)}`;
   if(gMode!=='column'){
     document.getElementById('meshInfo').textContent=
-      `${nx}×${ny} elements (${f2(actualDx)}×${f2(actualDy)} m) · `+
+      `${nx}×${ny} elements (${md.minDx!=null?rng(md.minDx,md.maxDx):f2(actualDx)}×${md.minDy!=null?rng(md.minDy,md.maxDy):f2(actualDy)} m) · `+
       `${nn} nodes · ~${tEst}s${warn}`;
     return;
   }
   const c=colP();
-  const rng=(a,b)=>Math.abs(a-b)<1e-9?f2(a):`${f2(a)}–${f2(b)}`;
   const errTxt=c.err?`⚠ ${c.err} `:'';
   document.getElementById('colInfo').textContent=
     `${errTxt}Plate ${c.Lx.toFixed(2)}×${c.Ly.toFixed(2)} m · `+
@@ -2228,6 +2308,25 @@ function toggleIrregular(){
   updateUI();
 }
 
+// Column support inputs changed: refresh the stiffness summary, preview and editor
+function colSupChanged(){
+  const ci=colSupportInputs();
+  document.getElementById('colElastic').style.display=ci.model==='elastic'?'block':'none';
+  const E=numIn('E',33)*1e6, k=colRotStiffness(ci,E);
+  const el=document.getElementById('colSupInfo');
+  if(el) el.innerHTML=ci.model==='elastic'
+    ? `k<sub>θ</sub> per column = <strong style="color:var(--purple)">${(k.kx/1000).toFixed(0)}</strong> (x) / <strong style="color:var(--purple)">${(k.ky/1000).toFixed(0)}</strong> (y) MNm/rad`+
+      `<br>Σ ${ci.far==='pinned'?3:4}·E<sub>cm</sub>·I/H, columns ${ci.Hb>0?'below':''}${ci.Hb>0&&ci.Ha>0?' + ':''}${ci.Ha>0?'above':''}${!(ci.Hb>0||ci.Ha>0)?'none — acts as pinned':''}`
+    : ci.model==='rigid' ? 'Column rotations fully fixed (infinitely stiff columns).'
+    : 'Vertical support only — no moment transferred to the columns.';
+  if(el) el.innerHTML+=ci.foot
+    ? `<br>Footprint: the slab inside each ${(ci.cx*1000).toFixed(0)}×${(ci.cy*1000).toFixed(0)} mm column moves as a rigid block (mesh lines are added at the column faces) — moments are taken at the column faces.`
+    : '<br>Point supports at the column centres (column size not modelled — peak moments grow as the mesh is refined).';
+  if(gMode!=='edge') updateUI();
+  const cm=document.getElementById('custModal');
+  if(cm && cm.classList.contains('open')) custRedraw();
+  custSyncFromSidebar(); custUpdateSummary();
+}
 function colP(){
   const irr=!!(document.getElementById('colIrr')||{}).checked;
   let bx=null, by=null, err='';
@@ -2247,7 +2346,7 @@ function colP(){
     xs, ys,                 // grid-line coordinates (m)
     Lx:xs[bx.length], Ly:ys[by.length],
     spx:Math.max(...bx), spy:Math.max(...by),   // largest spans (for L/δ)
-    cx: +v('colCx')/1000, cy: +v('colCy')/1000
+    cx: colSupportInputs().cx, cy: colSupportInputs().cy
   };
 }
 
@@ -2470,33 +2569,22 @@ async function solveAsync(){
   let custPoly=null;   // polygon mask for custom mode
   let custVoids=[];    // void polygons [{poly,closed}]
   let custWalls=[];    // wall lines [{x0,y0,x1,y1,t}]
+  let origin={x:0,y:0};   // drawing coordinates of the analysis origin (custom layouts)
   if(gMode==='edge'){
     Lx=+v('Lx'); Ly=+v('Ly');
     const md=getMeshDivs(); nx=md.nx; ny=md.ny; gx=md.gx; gy=md.gy;
   } else if(gMode==='custom'){
     const cg=custGetGeometry();  // throws if not ready
-    Lx=cg.Lx; Ly=cg.Ly;
+    Lx=cg.Lx; Ly=cg.Ly; origin=cg.origin;
     const md=getMeshDivs(); nx=md.nx; ny=md.ny; gx=md.gx; gy=md.gy;
     custPoly=cg.poly;
     custVoids=cg.voids||[];
     custWalls=cg.walls||[];
-    // Snap columns to nearest mesh node
-    columns=cg.columns.map(col=>{
-      const iC=Math.max(0,Math.min(nx,Math.round(col.x/(Lx/nx))));
-      const jC=Math.max(0,Math.min(ny,Math.round(col.y/(Ly/ny))));
-      return{...col,x:iC*(Lx/nx),y:jC*(Ly/ny)};
-    });
-    geo={spx:Lx,spy:Ly,Ldiag:Math.hypot(Lx,Ly)};  // full plate diagonal as fallback
-    // Compute characteristic span: minimum col-to-col diagonal distance
-    if(columns.length>=2){
-      let minDist=Infinity;
-      for(let i=0;i<columns.length;i++) for(let j=i+1;j<columns.length;j++){
-        const d=Math.hypot(columns[i].x-columns[j].x,columns[i].y-columns[j].y);
-        if(d<minDist) minDist=d;
-      }
-      geo.spx=geo.spy=minDist;
-      geo.Ldiag=minDist; // already the true diagonal distance between nearest columns
-    }
+    // Columns sit on grid lines (see meshLines) — snap to the nearest node
+    columns=cg.columns.map(col=>({...col,x:gx[gIdx(gx,col.x)],y:gy[gIdx(gy,col.y)]}));
+    // L for L/δ is set after the solve: twice the distance from the point of
+    // maximum deflection to the nearest support (= bay diagonal for a column grid)
+    geo={spx:Lx,spy:Ly,Ldiag:Math.hypot(Lx,Ly)};
   } else {
     const c=colP();
     if(c.err) throw new Error(c.err);
@@ -2511,12 +2599,16 @@ async function solveAsync(){
   if(elCount>50000) throw new Error(
     `Mesh too large (${nx}×${ny} = ${elCount} elements). Increase element size. Max 50,000 elements.`);
   if(elCount>20000){
-    console.warn(`Large mesh: ${elCount} elements — banded solver active.`);
+    console.warn(`Large mesh: ${elCount} elements — envelope solver active.`);
   }
 
-  // Average element size — the mesh may be non-uniform in column-grid mode, so
+  // Average element size — the mesh may be non-uniform (column grids, custom layouts), so
   // node positions always come from the grid-line arrays gx/gy.
   const dx=Lx/nx, dy=Ly/ny;
+  // Smallest element dimension, for sampling densities and tolerances
+  let hMin=Math.min(dx,dy);
+  for(let i=0;i<nx;i++) hMin=Math.min(hMin,gx[i+1]-gx[i]+1e-12);
+  for(let j=0;j<ny;j++) hMin=Math.min(hMin,gy[j+1]-gy[j]+1e-12);
   const nn=(nx+1)*(ny+1); let ndof=nn*3;
   const nid=(i,j)=>j*(nx+1)+i;
 
@@ -2543,12 +2635,14 @@ async function solveAsync(){
     return{bx,by,d:bestD};
   }
   if(custPoly){
-    const snapDist=Math.min(dx,dy)*0.85;
+    // snap distance from the element sizes around the node (grids may be non-uniform)
     for(let j=0;j<=ny;j++) for(let i=0;i<=nx;i++){
       const nd=nid(i,j),wx=gx[i],wy=gy[j];
       if(!custPointInPoly(wx,wy,custPoly)){
+        const hx=Math.min(i>0?gx[i]-gx[i-1]:Infinity, i<nx?gx[i+1]-gx[i]:Infinity);
+        const hy=Math.min(j>0?gy[j]-gy[j-1]:Infinity, j<ny?gy[j+1]-gy[j]:Infinity);
         const{bx,by,d}=_nearestOnPoly(wx,wy,custPoly);
-        if(d<=snapDist){nodeX[nd]=bx;nodeY[nd]=by;}
+        if(d<=Math.min(hx,hy)*0.85){nodeX[nd]=bx;nodeY[nd]=by;}
       }
     }
   }
@@ -2562,20 +2656,34 @@ async function solveAsync(){
   // 'interior': all 4 corners inside → standard Q4 element
   // 'boundary': 2-3 corners inside  → 2 Mindlin triangles (projected node coords)
   // 'outside' : 0-1 corners inside  → skip
-  const _elSnapTol=Math.min(dx,dy)*0.08;
+  const _elSnapTol=hMin*0.08;
   function _cornerIn(wx,wy,poly){
     return custPointInPoly(wx,wy,poly)||custDistToPoly(wx,wy,poly)<=_elSnapTol;
   }
+  // An element lying just outside an edge has two corners ON the edge; it must
+  // not count as slab, so the element must also overlap the polygon (centroid
+  // inside, or a corner strictly inside). Results cached per element.
+  const _etCache=new Array(nx*ny);
   function elType(ex,ey){
     if(!custPoly) return 'interior';
+    const key=ey*nx+ex; if(_etCache[key]) return _etCache[key];
     const ci=[ex,ex+1,ex+1,ex],cj=[ey,ey,ey+1,ey+1];
-    let inside=0;
-    for(let k=0;k<4;k++) if(_cornerIn(gx[ci[k]],gy[cj[k]],custPoly)) inside++;
-    if(inside===0) return 'outside';
-    for(const v of custVoids){if(!v.closed)continue;let iv=0;for(let k=0;k<4;k++)if(_cornerIn(gx[ci[k]],gy[cj[k]],v.poly))iv++;if(iv>=3)return 'outside';}
-    if(inside===4) return 'interior';
-    if(inside>=2) return 'boundary';
-    return 'outside';
+    let inside=0, strict=0;
+    for(let k=0;k<4;k++){
+      const x=gx[ci[k]], y=gy[cj[k]];
+      if(custPointInPoly(x,y,custPoly)){ inside++; if(custDistToPoly(x,y,custPoly)>_elSnapTol) strict++; }
+      else if(custDistToPoly(x,y,custPoly)<=_elSnapTol) inside++;
+    }
+    let t;
+    if(inside===0) t='outside';
+    else if(!strict && !custPointInPoly((gx[ex]+gx[ex+1])/2,(gy[ey]+gy[ey+1])/2,custPoly)) t='outside';
+    else {
+      t=inside===4?'interior':inside>=2?'boundary':'outside';
+      for(const v of custVoids){ if(!v.closed||t==='outside') continue;
+        let iv=0; for(let k=0;k<4;k++) if(_cornerIn(gx[ci[k]],gy[cj[k]],v.poly)) iv++;
+        if(iv>=3) t='outside'; }
+    }
+    return (_etCache[key]=t);
   }
   // Keep elIncluded as alias for renderers that still use it
   function elIncluded(ex,ey){ return elType(ex,ey)!=='outside'; }
@@ -2691,7 +2799,7 @@ async function solveAsync(){
           // Walk along the edge and accumulate load to nearby mesh nodes
           // Use the two endpoint nodes of the edge (approximate for coarse meshes)
           // For better accuracy: sample edge at small intervals and find closest node
-          const nSamp=Math.max(2,Math.ceil(edgeLen/Math.min(dx,dy)*2));
+          const nSamp=Math.max(2,Math.ceil(edgeLen/hMin*2));
           for(let si=0;si<=nSamp;si++){
             const t=si/nSamp;
             const px=p0.x+(p1.x-p0.x)*t, py=p0.y+(p1.y-p0.y)*t;
@@ -2782,7 +2890,7 @@ async function solveAsync(){
         for(let pi=0;pi<poly.length;pi++){
           const p0=poly[pi],p1=poly[(pi+1)%poly.length];
           const eLen=Math.hypot(p1.x-p0.x,p1.y-p0.y);
-          const nSamp=Math.max(2,Math.ceil(eLen/Math.min(dx,dy)*2));
+          const nSamp=Math.max(2,Math.ceil(eLen/hMin*2));
           for(let si=0;si<=nSamp;si++){
             const t=si/nSamp;
             const px=p0.x+(p1.x-p0.x)*t,py=p0.y+(p1.y-p0.y)*t;
@@ -2827,15 +2935,15 @@ async function solveAsync(){
 
   // ── Boundary conditions ───────────────────────────────────────────────────
   const fixed=new Set();
+  const colNodes=[];        // centre node of each column (same order as `columns`)
+  const wallNodes=[];       // nodes restrained by each wall
   if(gMode==='edge'){
     const em={ssss:['SS','SS','SS','SS'],cccc:['C','C','C','C'],cscs:['C','SS','C','SS'],
               sssf:['SS','SS','F','SS'],cccf:['C','C','F','C'],ccss:['C','SS','SS','C']};
     applyEdge(fixed,em[gBC]||em['ssss'],nx,ny,nid);
   } else if(gMode==='custom'){
-    // Custom mode: fix all 3 DOFs at column nodes.
-    // After snapping to the nearest grid node, verify the node is attached to at
-    // least one active element. If not (e.g. it sits at a polygon corner/edge where
-    // ray-casting returns false), search the 3×3 neighbourhood for a better node.
+    // Custom mode: column at the nearest grid node attached to an active element
+    // (a node at a polygon corner/edge may have none — then search the 3×3 neighbourhood).
     function _nodeHasElement(i,j){
       for(let dj=-1;dj<=0;dj++) for(let di=-1;di<=0;di++){
         const ex2=i+di,ey2=j+dj;
@@ -2846,7 +2954,6 @@ async function solveAsync(){
     if(columns) for(const col of columns){
       let iC=Math.max(0,Math.min(nx,gIdx(gx,col.x)));
       let jC=Math.max(0,Math.min(ny,gIdx(gy,col.y)));
-      // If this node has no active elements, find nearest node in 3×3 that does
       if(!_nodeHasElement(iC,jC)){
         let bestD=Infinity;
         for(let dj=-1;dj<=1;dj++) for(let di=-1;di<=1;di++){
@@ -2857,23 +2964,23 @@ async function solveAsync(){
           if(d2<bestD){bestD=d2;iC=ii;jC=jj;}
         }
       }
-      const nd=nid(iC,jC);
-      fixed.add(3*nd); fixed.add(3*nd+1); fixed.add(3*nd+2);
+      colNodes.push(nid(iC,jC));
     }
-    // Walls act as line supports — simply support (w=0, rotations free) along full length.
-    // Discretise each wall to mesh resolution so every nearby node is restrained.
+    // Walls act as line supports — simply supported (w=0, rotations free) along their length.
     for(const wall of custWalls){
+      const set=new Set();
       const wLen=Math.hypot(wall.x1-wall.x0,wall.y1-wall.y0);
-      if(wLen<1e-6) continue;
-      const nSampW=Math.max(2,Math.ceil(wLen/Math.min(dx,dy)*3));
-      for(let si=0;si<=nSampW;si++){
-        const wt_=si/nSampW;
-        const wxi=wall.x0+(wall.x1-wall.x0)*wt_;
-        const wyi=wall.y0+(wall.y1-wall.y0)*wt_;
-        const iW=Math.max(0,Math.min(nx,gIdx(gx,wxi)));
-        const jW=Math.max(0,Math.min(ny,gIdx(gy,wyi)));
-        fixed.add(3*nid(iW,jW)); // simply supported: w=0, rotations remain free
+      if(wLen>1e-6){
+        const nSampW=Math.max(2,Math.ceil(wLen/hMin*3));
+        for(let si=0;si<=nSampW;si++){
+          const wt_=si/nSampW;
+          const iW=Math.max(0,Math.min(nx,gIdx(gx,wall.x0+(wall.x1-wall.x0)*wt_)));
+          const jW=Math.max(0,Math.min(ny,gIdx(gy,wall.y0+(wall.y1-wall.y0)*wt_)));
+          const nd=nid(iW,jW);
+          if(K.get(3*nd,3*nd)>0){ set.add(nd); fixed.add(3*nd); }
+        }
       }
+      wallNodes.push([...set]);
     }
   } else {
     const et=v('colEdge');
@@ -2883,13 +2990,56 @@ async function solveAsync(){
     } else if(et==='fixed'){
       applyEdge(fixed,['C','C','C','C'],nx,ny,nid);
     }
-    // 'free': no edge BC — columns alone provide support (true flat slab behaviour)
     for(const col of columns){
-      const iC=Math.min(nx,Math.max(0,gIdx(gx,col.x)));
-      const jC=Math.min(ny,Math.max(0,gIdx(gy,col.y)));
-      const nd=nid(iC,jC);
-      fixed.add(3*nd); fixed.add(3*nd+1); fixed.add(3*nd+2);
+      colNodes.push(nid(Math.min(nx,Math.max(0,gIdx(gx,col.x))), Math.min(ny,Math.max(0,gIdx(gy,col.y)))));
     }
+  }
+  // ── Column supports: vertical restraint + rotational springs / rigid / pinned,
+  //    and an optional rigid footprint (see COLUMN SUPPORTS) ──────────────────
+  const colCI=colSupportInputs();
+  const colK=colRotStiffness(colCI,E);
+  const colSup={ci:colCI,k:colK,nodes:colNodes,springs:[],mpc:[],slaveNodes:[]};
+  for(const nd of colNodes){
+    fixed.add(3*nd);
+    if(colCI.model==='rigid'){ fixed.add(3*nd+1); fixed.add(3*nd+2); }
+    else if(colCI.model==='elastic'){
+      colSup.springs.push({dof:3*nd+1,k:colK.kx},{dof:3*nd+2,k:colK.ky});
+    }
+  }
+  if(colCI.foot && colNodes.length){
+    const used=new Set(colNodes);
+    for(const nd of colNodes){
+      const xc=nodeX[nd], yc=nodeY[nd], hx=colCI.cx/2+1e-6, hy=colCI.cy/2+1e-6, sl=[];
+      const i0=gIdx(gx,xc-hx), i1=gIdx(gx,xc+hx), j0=gIdx(gy,yc-hy), j1=gIdx(gy,yc+hy);
+      for(let j=Math.max(0,j0-1);j<=Math.min(ny,j1+1);j++) for(let i=Math.max(0,i0-1);i<=Math.min(nx,i1+1);i++){
+        const n=nid(i,j);
+        if(used.has(n) || Math.abs(nodeX[n]-xc)>hx || Math.abs(nodeY[n]-yc)>hy) continue;
+        if(K.get(3*n,3*n)===0 || fixed.has(3*n)||fixed.has(3*n+1)||fixed.has(3*n+2)) continue;
+        used.add(n); sl.push(n);
+        colSup.mpc.push({s:3*n,  m:[[3*nd,1],[3*nd+1,nodeX[n]-xc],[3*nd+2,nodeY[n]-yc]]});
+        colSup.mpc.push({s:3*n+1,m:[[3*nd+1,1]]});
+        colSup.mpc.push({s:3*n+2,m:[[3*nd+2,1]]});
+      }
+      colSup.slaveNodes.push(sl);
+    }
+  }
+  // Elements wholly inside a rigid footprint have no curvature: their (zero)
+  // moments are left out of the nodal averages, otherwise the moments at the
+  // column faces would be diluted (see postProcess).
+  const fpGroups=[], rigidEl=new Uint8Array(nx*ny);
+  if(colSup.mpc.length){
+    const fpId=new Int32Array(nn).fill(-1);
+    colNodes.forEach((nd,k)=>{ const sl=colSup.slaveNodes[k]||[]; if(!sl.length) return;
+      fpGroups.push([nd,...sl]); fpId[nd]=k; for(const n of sl) fpId[n]=k; });
+    for(let ey=0;ey<ny;ey++) for(let ex=0;ex<nx;ex++){
+      const k=fpId[nid(ex,ey)];
+      if(k>=0&&fpId[nid(ex+1,ey)]===k&&fpId[nid(ex+1,ey+1)]===k&&fpId[nid(ex,ey+1)]===k&&elType(ex,ey)==='interior') rigidEl[ey*nx+ex]=1;
+    }
+  }
+  for(const sp of colSup.springs) K.add(sp.dof,sp.dof,sp.k);
+  if(colSup.mpc.length){
+    applyMPC(K,[F_DL,F_SIDL,F_IL,F_FL,F_U1],colSup.mpc);
+    for(const c of colSup.mpc) fixed.add(c.s);
   }
 
   // ── Prune zero-stiffness DOFs ─────────────────────────────────────────────
@@ -2918,6 +3068,7 @@ async function solveAsync(){
   const u_IL   = ldltSolve(dec,F_IL,  ndof);
   const u_FL   = ldltSolve(dec,F_FL,  ndof);
   const u_U1   = ldltSolve(dec,F_U1,  ndof);
+  for(const u of [u_DL,u_SIDL,u_IL,u_FL,u_U1]) mpcRecover(colSup.mpc,u);
 
   // ── Combine: ULS for moments/shear, SLS for deflection ───────────────────
   // SLS: 1.0·DL + 1.0·SIDL + 1.0·IL
@@ -2945,7 +3096,8 @@ async function solveAsync(){
         _addTriStress(uArr,_n3,_n0,_nc4,MX,MY,MXY,VX,VY,cnt);
         continue;
       }
-      // Interior Q4:
+      // Interior Q4 (rigid column-footprint elements carry no slab bending):
+      if(rigidEl[ey*nx+ex]) continue;
       const ns=[_n0,_n1,_n2,_n3];
       const{xs,ys}=elXY(ex,ey);
       const s=shd(0,0,xs,ys);
@@ -2963,6 +3115,13 @@ async function solveAsync(){
     }
     for(let i=0;i<nn;i++) if(cnt[i]>0){
       MX[i]/=cnt[i];MY[i]/=cnt[i];MXY[i]/=cnt[i];VX[i]/=cnt[i];VY[i]/=cnt[i];
+    }
+    // Nodes inside a rigid footprint take the mean of its edge nodes (the
+    // values at the column faces, EC2 5.3.2.2(3))
+    for(const fp of fpGroups){
+      let n=0,mx=0,my=0,mxy=0,vx=0,vy=0;
+      for(const nd of fp) if(cnt[nd]>0){ mx+=MX[nd]; my+=MY[nd]; mxy+=MXY[nd]; vx+=VX[nd]; vy+=VY[nd]; n++; }
+      if(n) for(const nd of fp) if(cnt[nd]===0){ MX[nd]=mx/n; MY[nd]=my/n; MXY[nd]=mxy/n; VX[nd]=vx/n; VY[nd]=vy/n; }
     }
     // Wood-Armer design moments (orthogonal reinforcement, EN 1992 / BS 8110)
     // Sign convention in this FEM: w↓ positive → κxx = ∂²w/∂x² < 0 at midspan
@@ -2992,6 +3151,8 @@ async function solveAsync(){
   //  change of cover or bar size updates them without re-running the analysis)
   const nodeActive=new Uint8Array(nn);
   const elArea=new Float64Array(nx*ny);   // plan area of each active element (0 = outside slab)
+  const elKind=new Uint8Array(nx*ny);     // 0 outside · 1 interior Q4 · 2 boundary (for the renderers)
+  for(let i=0;i<mElE.length;i++) elKind[mElE[i]]=mElT[i]?2:1;
   for(let ey=0;ey<ny;ey++) for(let ex=0;ex<nx;ex++){
     const et=elType(ex,ey); if(et==='outside') continue;
     const n0=nid(ex,ey),n1=nid(ex+1,ey),n2=nid(ex+1,ey+1),n3=nid(ex,ey+1);
@@ -3009,36 +3170,42 @@ async function solveAsync(){
   const h_mm   = +v('thk');
   const fck_MPa= numIn('fck',30);
 
-  // ── Column reactions (from nodal equilibrium) ─────────────────────────────
-  // Correct formula: R[col] = (K · u)[col_w] − F[col_w]
-  // The reaction is the force the column exerts on the slab (upward = negative
-  // in our sign convention). We display the magnitude (downward load on column).
-  // This is O(ndof) per column — fast even for large meshes.
-  let colReact=null;
-  if(gMode==='column' && columns){
-    // Combine u vectors for ULS and SLS
-    const u_ULS_arr=u_ULS, u_SLS_arr=u_SLS;
-    colReact=[];
-    for(const col of columns){
-      const iC=Math.min(nx,Math.max(0,gIdx(gx,col.x)));
-      const jC=Math.min(ny,Math.max(0,gIdx(gy,col.y)));
-      const nd=nid(iC,jC);
-      const row=3*nd;  // w-DOF row index in K
-
-      // K[row,:]·u from the sparse row (column order). Fixed DOFs have u = 0.
-      let Ku_uls=0, Ku_sls=0;
-      const rowEntries=[...K.rows[row].entries()].sort((a,b)=>a[0]-b[0]);
-      for(const [j,kij] of rowEntries){
-        if(kij===0) continue;
-        Ku_uls+=kij*u_ULS_arr[j];
-        Ku_sls+=kij*u_SLS_arr[j];
-      }
-      // Reaction = K·u - F  (negative = upward; negate for downward column load)
-      const F_uls=ULS.dl*F_DL[row]+ULS.sidl*F_SIDL[row]+ULS.il*F_IL[row]+ULS.fl*F_FL[row];
-      const F_sls=SLS.dl*F_DL[row]+SLS.sidl*F_SIDL[row]+SLS.il*F_IL[row]+SLS.fl*F_FL[row];
-      const R_uls=-(Ku_uls-F_uls);  // negate: positive = column carries load downward
-      const R_sls=-(Ku_sls-F_sls);
-      colReact.push({...col, R_uls, R_sls});
+  // ── Support reactions (from nodal equilibrium) ────────────────────────────
+  // R = −(K·u − F) at a restrained DOF (positive = load carried down into the
+  // support). K and F include the folded footprint constraints, so a column's
+  // vertical reaction covers its whole footprint. Moments transferred to the
+  // column (the moment the slab applies to it, same sign convention for both
+  // models): spring moment k·θ (elastic) or the restraint moment (rigid).
+  const _Ku=(row,u)=>{ let s=0; const ent=[...K.rows[row].entries()].sort((a,b)=>a[0]-b[0]);
+    for(const [j,kij] of ent){ if(kij!==0) s+=kij*u[j]; } return s; };
+  const _F=(row,f)=>f.dl*F_DL[row]+f.sidl*F_SIDL[row]+f.il*F_IL[row]+f.fl*F_FL[row];
+  const _R=(row,u,f)=>-(_Ku(row,u)-_F(row,f));
+  let colReact=null, wallReact=null;
+  if(columns && colNodes.length){
+    colReact=columns.map((col,k)=>{
+      const nd=colNodes[k];
+      let Mx=0,My=0;
+      if(colCI.model==='elastic'){ Mx=colK.kx*u_ULS[3*nd+1]; My=colK.ky*u_ULS[3*nd+2]; }
+      else if(colCI.model==='rigid'){ Mx=_R(3*nd+1,u_ULS,ULS); My=_R(3*nd+2,u_ULS,ULS); }
+      return {...col, x:nodeX[nd], y:nodeY[nd], node:nd, R_uls:_R(3*nd,u_ULS,ULS), R_sls:_R(3*nd,u_SLS,SLS),
+              Mx_uls:Mx, My_uls:My, footNodes:(colSup.slaveNodes[k]||[]).length};
+    });
+  }
+  if(wallNodes.length){
+    wallReact=wallNodes.map((nodes,k)=>({wall:k, R_uls:nodes.reduce((s,n)=>s+_R(3*n,u_ULS,ULS),0),
+                                         R_sls:nodes.reduce((s,n)=>s+_R(3*n,u_SLS,SLS),0), n:nodes.length}));
+  }
+  // Custom layouts: span for L/δ = 2 × distance from the point of maximum SLS
+  // deflection to the nearest support (equals the bay diagonal on a column grid)
+  if(gMode==='custom'){
+    let iMax=-1,wMax=0;
+    for(let n=0;n<nn;n++){ if(!K.rows[3*n].size||fixed.has(3*n)) continue; const a=Math.abs(u_SLS[3*n]); if(a>wMax){ wMax=a; iMax=n; } }
+    if(iMax>=0){
+      let dMin=Infinity;
+      const _slave=new Set(colSup.mpc.map(c=>c.s));
+      for(let n=0;n<nn;n++) if(fixed.has(3*n) && !_slave.has(3*n) && K.get(3*n,3*n)>0)
+        dMin=Math.min(dMin,Math.hypot(nodeX[n]-nodeX[iMax],nodeY[n]-nodeY[iMax]));
+      if(isFinite(dMin)&&dMin>0) geo.Ldiag=2*dMin;
     }
   }
   // Total applied loads (ULS and SLS) — use plate area × intensity
@@ -3055,7 +3222,8 @@ async function solveAsync(){
   // stiffness — independent of any inputs changed after this run.
   const model={nx,ny,nn,nnExt,ndof,nodeX:nXe,nodeY:nYe,nEl:mElE.length,
     elE:Int32Array.from(mElE), elType:Uint8Array.from(mElT), elN:Int32Array.from(mElN), elC:Int32Array.from(mElC),
-    fixed, F:{DL:F_DL,SIDL:F_SIDL,IL:F_IL,FL:F_FL,U1:F_U1}, nu};
+    fixed, F:{DL:F_DL,SIDL:F_SIDL,IL:F_IL,FL:F_FL,U1:F_U1}, nu, colSup, E,
+    rigid:Uint8Array.from(mElE,e=>rigidEl[e]), fpGroups};
 
   // Per-load-case displacements (long-term analysis combines them for its first pass)
   model.u={DL:u_DL,SIDL:u_SIDL,IL:u_IL,FL:u_FL,U1:u_U1}; model.DbMain=DbMain; model.Ds=Ds;
@@ -3065,7 +3233,7 @@ async function solveAsync(){
     WA_Mx_bot, WA_My_bot, WA_Mx_top, WA_My_top,
     elArea, nodeActive, h_mm, fck_MPa,
     Mx_sls:MX_sls, My_sls:MY_sls, Mxy_sls:MXY_sls, Vx_sls:VX_sls, Vy_sls:VY_sls,
-    xC,yC,nodeX:nXe,nodeY:nYe,nBoundary,colReact,geo,columns,poly:custPoly||null,voids:custVoids||[],walls:custWalls||[],
+    xC,yC,nodeX:nXe,nodeY:nYe,nBoundary,colReact,wallReact,colSup,origin,elKind,geo,columns,poly:custPoly||null,voids:custVoids||[],walls:custWalls||[],
     model, ndof, mode:gMode,
     qDL,qSIDL,qIL,qFL_udl,qFL_perim,swVal,totalLoad_ULS,totalLoad_SLS};
   designRebar(res);
@@ -3157,6 +3325,54 @@ function keTri(x0,y0,x1,y1,x2,y2,Db,Ds){
   for(let k=0;k<3;k++){Bs[0*9+3*k+0]=bx[k];Bs[0*9+3*k+1]=-1/3;Bs[1*9+3*k+0]=by[k];Bs[1*9+3*k+2]=-1/3;}
   for(let r=0;r<9;r++) for(let cc=0;cc<9;cc++) ke[r*9+cc]+=(Bs[0*9+r]*Bs[0*9+cc]+Bs[1*9+r]*Bs[1*9+cc])*Ds*area;
   return{ke,area};
+}
+
+/* ================================================================
+   COLUMN SUPPORTS
+   Each column is a vertical support at its centre node with
+   • rotational restraint from the columns above and below:
+       elastic  k = n·Ec·I/H per column (n = 4 far end fixed, 3 far end pinned),
+       rigid    rotations fully fixed,
+       pinned   no rotational restraint;
+   • optionally a rigid footprint: slab nodes inside the cx × cy column
+     section move with the column centre (exact master–slave elimination,
+     so no penalty stiffness spoils the conditioning).
+   θx = ∂w/∂x is resisted by bending of the column about its y-axis
+   (I = cy·cx³/12), θy = ∂w/∂y about its x-axis (I = cx·cy³/12).
+   ================================================================ */
+function colSupportInputs(){
+  return {model:(document.getElementById('colModel')||{value:'elastic'}).value,
+    Hb:Math.max(0,numIn('colHb',3.5)), Ha:Math.max(0,numIn('colHa',3.5)),
+    far:(document.getElementById('colFar')||{value:'fixed'}).value,
+    cx:Math.max(0.05,numIn('colCx',400)/1000), cy:Math.max(0.05,numIn('colCy',400)/1000),
+    foot:!!(document.getElementById('colFoot')||{checked:true}).checked};
+}
+function colRotStiffness(ci,E_kPa){
+  const n=ci.far==='pinned'?3:4;
+  let s=0; if(ci.Hb>0) s+=n/ci.Hb; if(ci.Ha>0) s+=n/ci.Ha;
+  return {kx:E_kPa*(ci.cy*ci.cx**3/12)*s, ky:E_kPa*(ci.cx*ci.cy**3/12)*s};
+}
+// Eliminate slave DOFs u_s = Σ c·u_m from K (and fold their loads): K ← TᵀKT, F ← TᵀF
+function applyMPC(K,Fs,mpc){
+  for(const {s,m} of mpc){
+    const row=K.rows[s], Kss=row.get(s)||0;
+    for(const [j,ksj] of row){
+      if(j===s||ksj===0) continue;
+      for(const [md,c] of m){ K.add(md,j,c*ksj); K.add(j,md,c*ksj); }
+    }
+    for(const [m1,c1] of m) for(const [m2,c2] of m) K.add(m1,m2,c1*c2*Kss);
+    for(const j of row.keys()) if(j!==s) K.rows[j].delete(s);
+    K.rows[s]=new Map([[s,1]]);                 // decoupled; the DOF is held fixed
+    for(const F of Fs){ for(const [md,c] of m) F[md]+=c*F[s]; F[s]=0; }
+  }
+}
+function mpcFoldF(mpc,F){ for(const {s,m} of mpc){ for(const [md,c] of m) F[md]+=c*F[s]; F[s]=0; } return F; }
+function mpcRecover(mpc,u){ for(const {s,m} of mpc){ let v=0; for(const [md,c] of m) v+=c*u[md]; u[s]=v; } return u; }
+// Springs + footprint constraints for a model (the long-term analysis scales springs by E)
+function applyColumnSupports(m,K,Escale){
+  const cs=m.colSup; if(!cs) return;
+  for(const sp of cs.springs) K.add(sp.dof,sp.dof,sp.k*Escale);
+  if(cs.mpc.length) applyMPC(K,[],cs.mpc);
 }
 
 // Wood-Armer design moments for orthogonal reinforcement (magnitudes, kNm/m).
@@ -3269,16 +3485,21 @@ function applyEdge(fixed,edges,nx,ny,nid){
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   SPARSE BANDED LDLT SOLVER
+   SPARSE ENVELOPE (SKYLINE) LDLT SOLVER
    ═══════════════════════════════════════════════════════════════════════════
-   Replaces the dense O(nf³) solver with a banded O(nf·bw²) factorisation.
+   Replaces the dense O(nf³) solver with an envelope factorisation: each row
+   is stored from its first non-zero to the diagonal, and LDLᵀ fill-in stays
+   inside that envelope. Work ≈ Σ (row width)², so a few wide rows (column
+   footprint constraints tie a column centre to a 5×5 node patch) no longer
+   widen every row as they would in fixed-band storage.
    Steps:
      1. Extract free DOFs
      2. Build adjacency graph from K sparsity
-     3. Cuthill-McKee BFS reordering to minimise bandwidth
-     4. Measure actual half-bandwidth bw of reordered system
-     5. Factorise using banded storage B[i*bw + k] = L(i, i-bw+1+k)
-     6. Solve using banded forward/backward substitution
+     3. Ordering: natural, Cuthill-McKee or reverse Cuthill-McKee — whichever
+        gives the least envelope work
+     4. Envelope storage E[off[i] + k − first[i]] = L(i,k), first[i] ≤ k ≤ i
+     5. Row-by-row LDLᵀ factorisation inside the envelope
+     6. Forward / diagonal / backward substitution
    ═══════════════════════════════════════════════════════════════════════════ */
 
 // ── Cuthill-McKee BFS reordering ──────────────────────────────────────────
@@ -3320,9 +3541,9 @@ async function ldltDecomp(K,n,fixedSet,onProgress,adjSet_global,sym){
   // with an identical sparsity pattern (long-term iterations).
   const sparse=!!(K&&K.rows);
   const Kget=sparse ? (i,j)=>K.get(i,j) : (i,j)=>K[i*n+j];
-  let free,nf,freeIdx,perm,invPerm,bw,adj=null;
+  let free,nf,freeIdx,perm,invPerm,bw,first,off,total,adj=null;
   if(sym && sym.perm){
-    ({free,nf,freeIdx,perm,invPerm,bw}=sym);
+    ({free,nf,freeIdx,perm,invPerm,bw,first,off,total}=sym);
   } else {
     // ── Step 1: extract free DOFs ────────────────────────────────────────────
     free=[];
@@ -3367,101 +3588,92 @@ async function ldltDecomp(K,n,fixedSet,onProgress,adjSet_global,sym){
       }
     }
 
-    // ── Step 3: ordering — Cuthill-McKee or the natural (row-by-row) order,
-    //    whichever gives the smaller band. On structured rectangular meshes the
-    //    natural order is ~2× narrower, i.e. ~4× less factorisation work.
-    let bwN=1;
-    for(let li=0;li<nf;li++) for(const lj of adj[li]){ const d=Math.abs(li-lj); if(d>bwN) bwN=d; }
+    // ── Step 3: ordering — natural (row-by-row), Cuthill-McKee or reverse
+    //    Cuthill-McKee, whichever needs the least envelope work Σ(row width)².
+    //    On structured rectangular meshes the natural order usually wins.
     const cm=_cuthillMcKee(adj,nf);
-    let bwC=1;
-    for(let li=0;li<nf;li++){ const ni=cm.perm[li]; for(const lj of adj[li]){ const d=Math.abs(ni-cm.perm[lj]); if(d>bwC) bwC=d; } }
-    if(bwN<=bwC){
-      perm=new Int32Array(nf); invPerm=new Int32Array(nf);
-      for(let i=0;i<nf;i++){ perm[i]=i; invPerm[i]=i; }
-      bw=Math.min(bwN+1,nf);
-    } else {
-      perm=cm.perm; invPerm=cm.invPerm; bw=Math.min(bwC+1,nf);
+    const natP=new Int32Array(nf); for(let i=0;i<nf;i++) natP[i]=i;
+    const rcmP=new Int32Array(nf), rcmI=new Int32Array(nf);
+    for(let i=0;i<nf;i++){ rcmP[i]=nf-1-cm.perm[i]; rcmI[rcmP[i]]=i; }
+    const envFirst=p=>{
+      const f=new Int32Array(nf);
+      for(let li=0;li<nf;li++){ const ni=p[li]; let m=ni; for(const lj of adj[li]){ const nj=p[lj]; if(nj<m) m=nj; } f[ni]=m; }
+      return f;
+    };
+    let best=null;
+    for(const [p,ip] of [[natP,natP],[cm.perm,cm.invPerm],[rcmP,rcmI]]){
+      const f=envFirst(p); let wk=0; for(let i=0;i<nf;i++){ const w=i-f[i]; wk+=w*w; }
+      if(!best||wk<best.wk) best={p,ip,f,wk};
     }
-    // bw = number of columns stored per row (diagonal + bw-1 subdiagonals)
-    if(sym) Object.assign(sym,{free,nf,freeIdx,perm,invPerm,bw});
+    perm=best.p; invPerm=best.ip; first=best.f;
+    off=new Float64Array(nf+1); total=0; bw=1;
+    for(let i=0;i<nf;i++){ off[i]=total; const w=i-first[i]+1; total+=w; if(w>bw) bw=w; }
+    off[nf]=total;
+    // bw = widest row (diagonal included), for information only
+    if(sym) Object.assign(sym,{free,nf,freeIdx,perm,invPerm,bw,first,off,total});
   }
 
-  // ── Step 4: build reordered banded matrix ──────────────────────────────────
-  // B[i*bw + k] = A_reordered[i, i-bw+1+k] for k in [0, bw); lower triangle only
-  const B=new Float64Array(nf*bw); // zero-initialised
+  // ── Step 4: envelope storage of the reordered lower triangle ───────────────
+  // E[off[i] + k − first[i]] = A(i,k) for first[i] ≤ k ≤ i
+  const E=new Float64Array(total);
   if(sparse){
     for(let li=0;li<nf;li++){
-      const gi=free[li], ni=perm[li];
+      const gi=free[li], ni=perm[li], base=off[ni]-first[ni];
       for(const [gj,val] of K.rows[gi]){
         const lj=freeIdx[gj]; if(lj<0) continue;
         const nj=perm[lj];
-        if(nj<=ni){ const k=bw-1-(ni-nj); if(k>=0) B[ni*bw+k]=val; }
+        if(nj<=ni && nj>=first[ni]) E[base+nj]=val;
       }
     }
   } else {
     for(let li=0;li<nf;li++){
-      const ni=perm[li];
-      B[ni*bw+(bw-1)]=Kget(free[li],free[li]);
-      for(const lj of adj[li]){
-        const nj=perm[lj];
-        if(nj<ni){ const k=bw-1-(ni-nj); if(k>=0) B[ni*bw+k]=Kget(free[li],free[lj]); }
-      }
+      const ni=perm[li], base=off[ni]-first[ni];
+      E[base+ni]=Kget(free[li],free[li]);
+      for(const lj of adj[li]){ const nj=perm[lj]; if(nj<ni && nj>=first[ni]) E[base+nj]=Kget(free[li],free[lj]); }
     }
   }
 
-  // ── Step 6: banded LDLT factorisation (in-place on B) ─────────────────────
+  // ── Step 5: row-by-row LDLᵀ inside the envelope (in place on E) ────────────
+  //   g_ik = a_ik − Σ_r g_ir·l_kr   (g = l·d, first[i] ≤ k < i)
+  //   l_ik = g_ik / d_k ,  d_i = a_ii − Σ_k l_ik·g_ik
   // Modified LDLT with pivot clamping for near-zero pivots.
   let Kmax=0;
-  for(let i=0;i<nf;i++) Kmax=Math.max(Kmax, Math.abs(B[i*bw+(bw-1)]));
+  for(let i=0;i<nf;i++) Kmax=Math.max(Kmax, Math.abs(E[off[i+1]-1]));
   const thresh=1e-6*Kmax||1e-10;
 
   const d=new Float64Array(nf);
   const zeroModes=[];
   const CHUNK=Math.max(1,Math.floor(nf/200));
 
-  for(let j=0;j<nf;j++){
-    // Diagonal: d[j] = B[j,j] - sum_{k<j, |j-k|<bw} L[j,k]² * d[k]
-    let s=B[j*bw+(bw-1)]; // A[j,j]
-    const jStart=Math.max(0,j-bw+1);
-    for(let k=jStart;k<j;k++){
-      const Ljk=B[j*bw+(bw-1-(j-k))]; // L[j,k] stored in B
-      s-=Ljk*Ljk*d[k];
+  for(let i=0;i<nf;i++){
+    const fi=first[i], bi=off[i]-fi;
+    for(let k=fi+1;k<i;k++){
+      const fk=first[k], bk=off[k]-fk;
+      let s=0;
+      for(let r=(fi>fk?fi:fk);r<k;r++) s+=E[bi+r]*E[bk+r];
+      E[bi+k]-=s;
     }
-    if(Math.abs(s)<thresh){ d[j]=thresh; zeroModes.push(j); } else { d[j]=s; }
-    const invDj=1/d[j];
+    let s=E[bi+i];
+    for(let k=fi;k<i;k++){ const g=E[bi+k], l=g/d[k]; s-=l*g; E[bi+k]=l; }
+    if(Math.abs(s)<thresh){ d[i]=thresh; zeroModes.push(i); } else { d[i]=s; }
 
-    // Sub-diagonals: L[i,j] for i in (j, min(j+bw, nf))
-    const iEnd=Math.min(nf,j+bw);
-    for(let i=j+1;i<iEnd;i++){
-      // A[i,j] is stored in B at B[i*bw + (bw-1-(i-j))]
-      let t=B[i*bw+(bw-1-(i-j))];
-      const iStart=Math.max(0,i-bw+1);
-      const kStart=Math.max(iStart,jStart);
-      for(let k=kStart;k<j;k++){
-        const Lik=B[i*bw+(bw-1-(i-k))];
-        const Ljk=B[j*bw+(bw-1-(j-k))];
-        t-=Lik*Ljk*d[k];
-      }
-      B[i*bw+(bw-1-(i-j))]=t*invDj; // overwrite A with L in-place
-    }
-
-    if((j+1)%CHUNK===0||j===nf-1){
-      const pct=Math.round(((j+1)/nf)**2*100); // quadratic weight for banded
+    if((i+1)%CHUNK===0||i===nf-1){
+      const pct=Math.round(((i+1)/nf)**2*100); // quadratic weight
       if(onProgress) onProgress(pct);
       await yieldIfDue();
     }
   }
-  return{B,d,bw,free,nf,zeroModes,perm,invPerm,freeIdx};
+  return{E,off,first,d,bw,free,nf,zeroModes,perm,invPerm,freeIdx};
 }
 
 function ldltSolve(dec,F_or_d,free_or_n,F_opt,n_opt,zeroModes_opt){
   // Support both old signature ldltSolve(L,d,free,F,n,zm) [dense fallback]
-  // and new signature ldltSolve(dec, F, n, zm) [banded]
-  let B,d,bw,free,nf,zeroModes,perm,invPerm;
+  // and new signature ldltSolve(dec, F, n, zm) [envelope]
+  let E,off,first,d,free,nf,zeroModes,perm;
   let F,n;
-  if(dec && dec.B){
-    // New banded signature: ldltSolve(dec, F, n, zeroModes)
-    ({B,d,bw,free,nf,zeroModes,perm,invPerm,freeIdx:fiDec}=dec);
+  if(dec && dec.E){
+    // Envelope signature: ldltSolve(dec, F, n, zeroModes)
+    ({E,off,first,d,free,nf,zeroModes,perm}=dec);
     F=F_or_d; n=free_or_n;
     if(zeroModes_opt) zeroModes=zeroModes_opt; // override if passed
   } else {
@@ -3484,32 +3696,28 @@ function ldltSolve(dec,F_or_d,free_or_n,F_opt,n_opt,zeroModes_opt){
     return xFull;
   }
 
-  // ── Banded solve ──────────────────────────────────────────────────────────
-  // Permute RHS: b2[perm[li]] = F[free[li]]
-  const b2=new Float64Array(nf);
-  for(let li=0;li<nf;li++) b2[perm[li]]=F[free[li]];
+  // ── Envelope solve ────────────────────────────────────────────────────────
+  // Permute RHS: x[perm[li]] = F[free[li]]
+  const x=new Float64Array(nf);
+  for(let li=0;li<nf;li++) x[perm[li]]=F[free[li]];
 
-  // Forward substitution: L·y = b2 (banded)
-  const y=new Float64Array(nf);
+  // Forward substitution: L·y = b (row i of L is stored contiguously)
   for(let i=0;i<nf;i++){
-    let s=b2[i];
-    const iStart=Math.max(0,i-bw+1);
-    for(let k=iStart;k<i;k++) s-=B[i*bw+(bw-1-(i-k))]*y[k];
-    y[i]=s;
+    const fi=first[i], bi=off[i]-fi;
+    let s=x[i];
+    for(let k=fi;k<i;k++) s-=E[bi+k]*x[k];
+    x[i]=s;
   }
 
   // Diagonal solve: z = D^{-1}·y
-  const z=new Float64Array(nf);
-  for(let i=0;i<nf;i++) z[i]=y[i]/d[i];
-  if(zeroModes) for(const j of zeroModes) z[j]=0;
+  for(let i=0;i<nf;i++) x[i]/=d[i];
+  if(zeroModes) for(const j of zeroModes) x[j]=0;
 
-  // Backward substitution: L^T·x = z (banded)
-  const x=new Float64Array(nf);
+  // Backward substitution: Lᵀ·x = z, sweeping the stored rows from the bottom
   for(let i=nf-1;i>=0;i--){
-    let s=z[i];
-    const iEnd=Math.min(nf,i+bw);
-    for(let k=i+1;k<iEnd;k++) s-=B[k*bw+(bw-1-(k-i))]*x[k];
-    x[i]=s;
+    const xi=x[i]; if(xi===0) continue;
+    const fi=first[i], bi=off[i]-fi;
+    for(let k=fi;k<i;k++) x[k]-=E[bi+k]*xi;
   }
   if(zeroModes) for(const j of zeroModes) x[j]=0;
 
@@ -3563,34 +3771,57 @@ function display(r){
     if(svDLEl) svDLEl.textContent=`${(r.swVal??0).toFixed(2)} kN/m²`;
   }
 
-  // Column reactions table
+  // Support reactions table (columns and walls)
   const crSt=document.getElementById('colRst');
   const rt=document.getElementById('reactTbl');
   const rsm=document.getElementById('sm-react');
-  if(r.colReact && r.colReact.length){
+  const sup=(r.colReact||[]).length+(r.wallReact||[]).length;
+  if(sup){
+    const O=r.origin||{x:0,y:0};
+    const all=(r.colReact||[]).concat(r.wallReact||[]);
+    const totalR_uls=all.reduce((s,c)=>s+c.R_uls,0);
+    const totalR_sls=all.reduce((s,c)=>s+c.R_sls,0);
     crSt.style.display='flex';
-    const totalR_uls=r.colReact.reduce((s,c)=>s+Math.abs(c.R_uls),0);
-    const totalR_sls=r.colReact.reduce((s,c)=>s+Math.abs(c.R_sls),0);
     document.getElementById('sv-cr').innerHTML=totalR_uls.toFixed(1)+' kN <span class="lc-badge uls">ULS</span>';
     const tb=document.getElementById('reactBody'); tb.innerHTML='';
-    r.colReact.forEach((col,idx)=>{
-      const ref=gridRef(col.ci,col.cj);
-      const pct_uls=r.totalLoad_ULS>0?(Math.abs(col.R_uls)/r.totalLoad_ULS*100).toFixed(1):'—';
+    const pct=R=>r.totalLoad_ULS>0?(R/r.totalLoad_ULS*100).toFixed(1)+'%':'—';
+    const mod=r.colSup?r.colSup.ci.model:'rigid';
+    (r.colReact||[]).forEach((col,idx)=>{
+      const ref=(col.ci!=null&&col.cj!=null)?gridRef(col.ci,col.cj):'C'+(idx+1);
       const tr=document.createElement('tr');
-      tr.innerHTML=`<td>${idx+1}</td><td>${ref}</td><td>${col.x.toFixed(2)}</td>
-        <td>${col.y.toFixed(2)}</td>
+      const mm=v=>mod==='pinned'?'0':v.toFixed(1);
+      tr.innerHTML=`<td>Column ${idx+1}</td><td>${ref}</td><td>${(col.x+O.x).toFixed(2)}</td><td>${(col.y+O.y).toFixed(2)}</td>
         <td style="color:#E50076;font-weight:bold">${col.R_uls.toFixed(2)}</td>
         <td style="color:#554996;font-weight:bold">${col.R_sls.toFixed(2)}</td>
-        <td>${pct_uls}%</td>`;
+        <td>${pct(col.R_uls)}</td><td>${mm(col.Mx_uls)}</td><td>${mm(col.My_uls)}</td>`;
+      tb.appendChild(tr);
+    });
+    (r.wallReact||[]).forEach((w,k)=>{
+      const wl=r.walls[w.wall];
+      const tr=document.createElement('tr');
+      tr.innerHTML=`<td>Wall ${k+1}</td><td>W${k+1}</td>
+        <td colspan="2" style="font-size:0.62rem">${(wl.x0+O.x).toFixed(2)},${(wl.y0+O.y).toFixed(2)} → ${(wl.x1+O.x).toFixed(2)},${(wl.y1+O.y).toFixed(2)}</td>
+        <td style="color:#E50076;font-weight:bold">${w.R_uls.toFixed(2)}</td>
+        <td style="color:#554996;font-weight:bold">${w.R_sls.toFixed(2)}</td>
+        <td>${pct(w.R_uls)}</td><td colspan="2" style="font-size:0.62rem;color:var(--text-dim)">line support (simply supported)</td>`;
       tb.appendChild(tr);
     });
     const tf=document.getElementById('reactFoot'); tf.innerHTML='';
     const fr=document.createElement('tr');
-    fr.innerHTML=`<td colspan="4" style="color:var(--text-dim);font-size:0.65rem;font-weight:700">TOTAL</td>
+    fr.innerHTML=`<td colspan="4" style="color:var(--text-dim);font-size:0.65rem;font-weight:700">TOTAL (applied ULS load ${r.totalLoad_ULS.toFixed(1)} kN)</td>
       <td style="color:#E50076;font-weight:700">${totalR_uls.toFixed(2)}</td>
       <td style="color:#554996;font-weight:700">${totalR_sls.toFixed(2)}</td>
-      <td>—</td>`;
+      <td>${pct(totalR_uls)}</td><td colspan="2"></td>`;
     tf.appendChild(fr);
+    const cs=r.colSup, cap=document.getElementById('reactCap');
+    if(cap) cap.innerHTML=!cs||!(r.colReact||[]).length?'':
+      (cs.ci.model==='elastic'
+        ? `Columns modelled as rotational springs from the columns above and below: k<sub>θ</sub> = ${(cs.k.kx/1000).toFixed(0)} / ${(cs.k.ky/1000).toFixed(0)} MNm/rad (x / y), `+
+          `${cs.ci.cx*1000}×${cs.ci.cy*1000} mm, H = ${cs.ci.Hb} m below${cs.ci.Ha>0?' + '+cs.ci.Ha+' m above':''}, far ends ${cs.ci.far}.`
+        : cs.ci.model==='rigid' ? 'Columns modelled as fully fixed (rigid) — moments are the restraint moments.'
+        : 'Columns modelled as pinned — no moment transfer.')+
+      (cs.ci.foot?` Rigid footprint: ${cs.slaveNodes.reduce((s,a)=>s+a.length,0)} slab node(s) inside column sections tied to the column centres.`:'')+
+      ` M<sub>x</sub>/M<sub>y</sub> = moment transferred to the column from bending in x/y — use with V<sub>Ed</sub> for punching (EC2 6.4.3).`;
     rt.style.display='table'; rsm.style.display='none';
   } else {
     crSt.style.display='none'; rt.style.display='none'; rsm.style.display='block';
@@ -3600,12 +3831,13 @@ function display(r){
   const db=document.getElementById('dataBody'); db.innerHTML='';
   const smp=Math.max(1,Math.ceil(r.nn/200));
   const fmt=(v,d)=>(v==null||!isFinite(v)?'—':(+v).toFixed(d));
+  const DO=r.origin||{x:0,y:0};
   for(let i=0;i<r.nn;i+=smp){
     if(i>=r.xC.length) break;  // guard against out-of-bounds
     const w=r.w[i]??0, mx=r.Mx[i]??0, my=r.My[i]??0;
     const mxy=r.Mxy[i]??0, vx=r.Vx[i]??0, vy=r.Vy[i]??0;
     const tr=document.createElement('tr');
-    tr.innerHTML=`<td>${i}</td><td>${fmt(r.xC[i],2)}</td><td>${fmt(r.yC[i],2)}</td>
+    tr.innerHTML=`<td>${i}</td><td>${fmt(r.xC[i]+DO.x,2)}</td><td>${fmt(r.yC[i]+DO.y,2)}</td>
       <td class="${w>0?'nv':'pos'}">${fmt(-w*1000,3)}</td>
       <td class="${mx<0?'nv':'pos'}">${fmt(mx,3)}</td>
       <td class="${my<0?'nv':'pos'}">${fmt(my,3)}</td>
@@ -3832,6 +4064,7 @@ function drawRebarMap(r,prov){
       ctx.beginPath(); r.poly.forEach((p,i)=>i?ctx.lineTo(X(p.x),Y(p.y)):ctx.moveTo(X(p.x),Y(p.y)));
       ctx.closePath(); ctx.strokeStyle='rgba(80,80,80,0.7)'; ctx.lineWidth=1.2; ctx.stroke();
     } else { ctx.strokeStyle='rgba(80,80,80,0.7)'; ctx.lineWidth=1.2; ctx.strokeRect(X(0),Y(r.Ly),pw,ph); }
+    drawWalls(ctx,r,(x,y)=>({sx:X(x),sy:Y(y)}));
     if(r.columns) for(const c of r.columns){
       ctx.fillStyle='#333'; ctx.fillRect(X(c.x)-2.5,Y(c.y)-2.5,5,5);
     }
@@ -3919,8 +4152,10 @@ function drawProvided(cid, r, key){
     for(const gyl of r.geo.ys){ const a=ws(0,gyl), b=ws(r.Lx,gyl); ctx.beginPath(); ctx.moveTo(a.sx,a.sy); ctx.lineTo(b.sx,b.sy); ctx.stroke(); }
     ctx.setLineDash([]);
   }
+  drawWalls(ctx,r,ws);
   if(r.columns) for(const col of r.columns){
-    const{sx,sy}=ws(col.x,col.y), cw=Math.max(5,col.cx/r.Lx*pw*0.9), ch=Math.max(5,col.cy/r.Ly*ph*0.9);
+    const sc=ws(1,0).sx-ws(0,0).sx;
+    const{sx,sy}=ws(col.x,col.y), cw=Math.max(5,col.cx*sc), ch=Math.max(5,col.cy*sc);
     ctx.fillStyle='#2b2b2b'; ctx.fillRect(sx-cw/2,sy-ch/2,cw,ch);
   }
   // One label per connected region of additional bars (no overlapping labels)
@@ -3995,8 +4230,8 @@ function drawProvided(cid, r, key){
   ly+=13; ctx.font='9px Arial'; ctx.fillStyle='#777';
   ctx.fillText('(A_s,req incl. A_s,min, all nodes)',lx,ly);
   ctx.fillStyle='#808080'; ctx.font='10px Space Mono'; ctx.textAlign='center';
-  ctx.fillText(`Lx = ${r.Lx} m`,x0+pw/2,narrow?y0+ph+20:H-10);
-  ctx.save(); ctx.translate(narrow?10:15,y0+ph/2); ctx.rotate(-Math.PI/2); ctx.fillText(`Ly = ${r.Ly} m`,0,0); ctx.restore();
+  ctx.fillText(`Lx = ${+(+r.Lx).toFixed(3)} m`,x0+pw/2,narrow?y0+ph+20:H-10);
+  ctx.save(); ctx.translate(narrow?10:15,y0+ph/2); ctx.rotate(-Math.PI/2); ctx.fillText(`Ly = ${+(+r.Ly).toFixed(3)} m`,0,0); ctx.restore();
 }
 
 function redrawAll(){
@@ -4040,8 +4275,14 @@ function redrawAll(){
       (ctx,ws)=>{ const w=L.inc&&L.inc.worst; if(!w) return;
         const{sx,sy}=ws(w.x,w.y); ctx.beginPath(); ctx.arc(sx,sy,8,0,Math.PI*2);
         ctx.strokeStyle=L.inc.ok?'#1a8a3a':'#E50076'; ctx.lineWidth=2.5; ctx.stroke();
-        ctx.fillStyle=ctx.strokeStyle; ctx.font='bold 9px Arial'; ctx.textAlign='left';
-        ctx.fillText(`perimeter ${(w.d*1000).toFixed(1)} mm (L/${w.d>0?(w.L/w.d).toFixed(0):'∞'}, limit L/${L.inc.ratio})`,sx+11,sy-8); });
+        const col=ctx.strokeStyle; ctx.font='bold 9px Arial'; ctx.textAlign='left';
+        const txt=`perimeter ${(w.d*1000).toFixed(1)} mm (L/${w.d>0?(w.L/w.d).toFixed(0):'∞'}, limit L/${L.inc.ratio})`;
+        // keep the label clear of the title (top edge) and inside the plot (right edge)
+        const p0=ws(0,0), p1=ws(gRes.Lx,gRes.Ly), top=Math.min(p0.sy,p1.sy), right=Math.max(p0.sx,p1.sx);
+        const tw=ctx.measureText(txt).width;
+        const tx=sx+11+tw>right+20?sx-11-tw:sx+11, ty=sy-8<top+6?sy+20:sy-8;
+        ctx.fillStyle='rgba(255,255,255,0.85)'; ctx.fillRect(tx-2,ty-9,tw+4,12);
+        ctx.fillStyle=col; ctx.fillText(txt,tx,ty); });
     contour('cvIcrIu', gRes, L.zeta,
       'Cracking ζ (Eq. 7.19) — 0 = uncracked, 1 = fully cracked (max of x, y)');
   }
@@ -4088,6 +4329,15 @@ function setupCvs(id){
   return{c,ctx:c.getContext('2d'),W,H};
 }
 
+// Wall line supports on the plan views (thickness to scale, min 3 px)
+function drawWalls(ctx,r,ws){
+  if(!r.walls||!r.walls.length) return;
+  const sc=ws(1,0).sx-ws(0,0).sx;
+  ctx.save(); ctx.strokeStyle='rgba(100,70,0,0.85)'; ctx.lineCap='butt';
+  for(const w of r.walls){ const a=ws(w.x0,w.y0), b=ws(w.x1,w.y1);
+    ctx.lineWidth=Math.max(3,(w.t||0.2)*sc); ctx.beginPath(); ctx.moveTo(a.sx,a.sy); ctx.lineTo(b.sx,b.sy); ctx.stroke(); }
+  ctx.restore();
+}
 function w2s(wx,wy,Lx,Ly,x0,y0,pw,ph){
   // Use a uniform scale so Lx and Ly are always to the same scale on screen.
   // Centre the slab within the available pw × ph area.
@@ -4111,16 +4361,8 @@ function drawMesh(r){
   const _mnid=(i,j)=>j*(r.nx+1)+i;
   const _nX=r.nodeX||(()=>{const a=new Float64Array((r.nx+1)*(r.ny+1));for(let j=0;j<=r.ny;j++)for(let i=0;i<=r.nx;i++)a[_mnid(i,j)]=r.gx[i];return a;})();
   const _nY=r.nodeY||(()=>{const a=new Float64Array((r.nx+1)*(r.ny+1));for(let j=0;j<=r.ny;j++)for(let i=0;i<=r.nx;i++)a[_mnid(i,j)]=r.gy[j];return a;})();
-  const _etol=Math.min(r.dx,r.dy)*0.08;
-  function _ecIn(wx,wy,poly){return custPointInPoly(wx,wy,poly)||custDistToPoly(wx,wy,poly)<=_etol;}
-  function _elOk(ex,ey){
-    if(!r.poly) return true;
-    const ci=[ex,ex+1,ex+1,ex],cj=[ey,ey,ey+1,ey+1];
-    let ins=0; for(let k=0;k<4;k++) if(_ecIn(r.gx[ci[k]],r.gy[cj[k]],r.poly)) ins++;
-    if(ins<2) return false;
-    if(r.voids) for(const v of r.voids){if(!v.closed)continue;let iv=0;for(let k=0;k<4;k++)if(_ecIn(r.gx[ci[k]],r.gy[cj[k]],v.poly))iv++;if(iv>=2)return false;}
-    return true;
-  }
+  // Elements exactly as analysed (solver classification)
+  function _elOk(ex,ey){ return !r.elKind || r.elKind[ey*r.nx+ex]>0; }
   for(let ey=0;ey<r.ny;ey++) for(let ex=0;ex<r.nx;ex++){
     if(!_elOk(ex,ey)) continue;
     const ns=[_mnid(ex,ey),_mnid(ex+1,ey),_mnid(ex+1,ey+1),_mnid(ex,ey+1)];
@@ -4180,7 +4422,7 @@ function drawMesh(r){
     // Column footprints
     for(const col of r.columns){
       const{sx:cx,sy:cy}=ws(col.x,col.y);
-      const cW=Math.max(6,col.cx/r.Lx*pw), cH=Math.max(6,col.cy/r.Ly*ph);
+      const sc=ws(1,0).sx-ws(0,0).sx, cW=Math.max(6,col.cx*sc), cH=Math.max(6,col.cy*sc);
       ctx.fillStyle='rgba(85,73,150,0.18)'; ctx.fillRect(cx-cW/2,cy-cH/2,cW,cH);
       ctx.strokeStyle='rgba(85,73,150,0.9)'; ctx.lineWidth=1.5;
       ctx.strokeRect(cx-cW/2,cy-cH/2,cW,cH);
@@ -4256,11 +4498,13 @@ function drawMesh(r){
 
   // Labels
   ctx.fillStyle='#808080'; ctx.font='10px Space Mono'; ctx.textAlign='center';
-  ctx.fillText(`Lx = ${r.Lx} m`,x0+pw/2,H-10);
+  ctx.fillText(`Lx = ${+(+r.Lx).toFixed(3)} m`,x0+pw/2,H-10);
   ctx.save(); ctx.translate(15,y0+ph/2); ctx.rotate(-Math.PI/2);
-  ctx.fillText(`Ly = ${r.Ly} m`,0,0); ctx.restore();
+  ctx.fillText(`Ly = ${+(+r.Ly).toFixed(3)} m`,0,0); ctx.restore();
   ctx.fillStyle='rgba(85,73,150,0.5)'; ctx.font='9px Space Mono'; ctx.textAlign='left';
-  ctx.fillText(`${r.nx*r.ny} elements · ${r.nn} nodes · ${r.nn*3} DOFs`,x0,y0-10);
+  let _ne=r.nx*r.ny, _nn=r.nn;
+  if(r.elKind&&r.nodeActive){ _ne=0; _nn=0; for(const k of r.elKind) if(k){ _ne++; if(k===2) _nn++; } for(const a of r.nodeActive) _nn+=a; }
+  ctx.fillText(`${_ne} elements · ${_nn} nodes · ${_nn*3} DOFs`,x0,y0-10);
 }
 
 function drawEdgeSym(ctx,edge,type,r,x0,y0,pw,ph){
@@ -4467,16 +4711,7 @@ function draw3d(cid, r, vals, title, isDefl){
   // Use projected node coords if available, else regular grid
   const _3nX=r.nodeX||(()=>{const a=new Float64Array(r.nn);for(let j=0;j<=r.ny;j++)for(let i=0;i<=r.nx;i++)a[nid(i,j)]=r.gx[i];return a;})();
   const _3nY=r.nodeY||(()=>{const a=new Float64Array(r.nn);for(let j=0;j<=r.ny;j++)for(let i=0;i<=r.nx;i++)a[nid(i,j)]=r.gy[j];return a;})();
-  const _3tol=Math.min(r.dx,r.dy)*0.08;
-  function _3cIn(wx,wy,poly){return custPointInPoly(wx,wy,poly)||custDistToPoly(wx,wy,poly)<=_3tol;}
-  function _3elOk(ex,ey){
-    if(!r.poly) return true;
-    const ci=[ex,ex+1,ex+1,ex],cj=[ey,ey,ey+1,ey+1];
-    let ins=0; for(let k=0;k<4;k++) if(_3cIn(r.gx[ci[k]],r.gy[cj[k]],r.poly)) ins++;
-    if(ins<2) return false;
-    if(r.voids) for(const v of r.voids){if(!v.closed)continue;let iv=0;for(let k=0;k<4;k++)if(_3cIn(r.gx[ci[k]],r.gy[cj[k]],v.poly))iv++;if(iv>=2)return false;}
-    return true;
-  }
+  function _3elOk(ex,ey){ return !r.elKind || r.elKind[ey*r.nx+ex]>0; }
 
   // ── Isometric camera parameters ──────────────────────────────────
   // Rotation angles (azimuth around Z, elevation)
@@ -4538,18 +4773,10 @@ function draw3d(cid, r, vals, title, isDefl){
   // ── Sort elements back-to-front (painter's algorithm) ─────────────
   // Use centroid depth (dot with view direction) for sorting
   const vdx=-rz*0+sinEl*cosAz*0, vdy=0, vdz=-1; // simplified: depth = -screen_y approx
-  // Classify elements for rendering (same >=2 corner logic, but distinguishes interior/boundary)
-  const _3tol2=Math.min(r.dx,r.dy)*0.08;
-  function _3cIn2(wx,wy,poly){return custPointInPoly(wx,wy,poly)||custDistToPoly(wx,wy,poly)<=_3tol2;}
+  // Element kinds as analysed (interior Q4 / boundary triangles / outside)
   function _3elType(ex,ey){
-    if(!r.poly) return 'interior';
-    const ci=[ex,ex+1,ex+1,ex],cj=[ey,ey,ey+1,ey+1];
-    let ins=0; for(let k=0;k<4;k++) if(_3cIn2(r.gx[ci[k]],r.gy[cj[k]],r.poly)) ins++;
-    if(ins===0) return 'outside';
-    if(r.voids) for(const v of r.voids){if(!v.closed)continue;let iv=0;for(let k=0;k<4;k++)if(_3cIn2(r.gx[ci[k]],r.gy[cj[k]],v.poly))iv++;if(iv>=3)return 'outside';}
-    if(ins===4) return 'interior';
-    if(ins>=2) return 'boundary';
-    return 'outside';
+    if(!r.elKind) return 'interior';
+    const k=r.elKind[ey*r.nx+ex]; return k===2?'boundary':k===1?'interior':'outside';
   }
   const elems=[];
   for(let ey=0;ey<r.ny;ey++) for(let ex=0;ex<r.nx;ex++){
@@ -4775,7 +5002,7 @@ function draw3d(cid, r, vals, title, isDefl){
   _titleY-=13;
   if(isDeflDeformed){
     ctx.fillStyle='rgba(85,73,150,0.7)'; ctx.font='9px Arial';
-    ctx.fillText(`Max deflection: ${(maxW*1000).toFixed(2)} mm`,W/2,_titleY);
+    ctx.fillText(`Max deflection: ${maxW.toFixed(2)} mm`,W/2,_titleY);   // vals are already in mm
     _titleY-=13;
   }
   ctx.fillStyle='rgba(229,0,118,0.9)'; ctx.font='bold 11px Arial';
@@ -4818,14 +5045,15 @@ function contour(cid,r,vals,title,overlay){
   const ws=(wx,wy)=>w2s(wx,wy,r.Lx,r.Ly,x0,y0,pw,ph);
   // For custom polygon mode, compute vmin/vmax only over nodes inside polygon
   // (nodes outside have zero displacement from unsolved DOFs which skews the scale)
-  let vmin, vmax;
-  if(r.poly){
-    const insideVals=vals.filter((_,i)=>custPointInPoly(r.xC[i],r.yC[i],r.poly)&&!(r.voids&&r.voids.some(v=>v.closed&&custPointInPoly(r.xC[i],r.yC[i],v.poly))));
-    vmin=insideVals.length?Math.min(...insideVals):Math.min(...vals);
-    vmax=insideVals.length?Math.max(...insideVals):Math.max(...vals);
-  } else {
-    vmin=Math.min(...vals); vmax=Math.max(...vals);
+  // Colour range and MIN/MAX markers over nodes that belong to the slab
+  const _act=r.nodeActive;
+  let vmin=Infinity, vmax=-Infinity, mi=-1, xi=-1;
+  for(let i=0;i<vals.length&&i<r.nn;i++){
+    if(_act && !_act[i]) continue;
+    const vl=vals[i]; if(!isFinite(vl)) continue;
+    if(vl<vmin){vmin=vl;mi=i;} if(vl>vmax){vmax=vl;xi=i;}
   }
+  if(mi<0){ vmin=0; vmax=0; mi=0; xi=0; }
   const vrange=vmax-vmin||1;
 
   // Compute the same uniform scale used by w2s so ImageData pixels align
@@ -4891,16 +5119,7 @@ function contour(cid,r,vals,title,overlay){
   const _cnid=(i,j)=>j*(r.nx+1)+i;
   const _cnX=r.nodeX||(()=>{const a=new Float64Array(r.nn);for(let j=0;j<=r.ny;j++)for(let i=0;i<=r.nx;i++)a[_cnid(i,j)]=r.gx[i];return a;})();
   const _cnY=r.nodeY||(()=>{const a=new Float64Array(r.nn);for(let j=0;j<=r.ny;j++)for(let i=0;i<=r.nx;i++)a[_cnid(i,j)]=r.gy[j];return a;})();
-  const _ctol=Math.min(r.dx,r.dy)*0.08;
-  function _ccIn(wx,wy,poly){return custPointInPoly(wx,wy,poly)||custDistToPoly(wx,wy,poly)<=_ctol;}
-  function _celOk(ex,ey){
-    if(!r.poly) return true;
-    const ci=[ex,ex+1,ex+1,ex],cj=[ey,ey,ey+1,ey+1];
-    let ins=0; for(let k=0;k<4;k++) if(_ccIn(r.gx[ci[k]],r.gy[cj[k]],r.poly)) ins++;
-    if(ins<2) return false;
-    if(r.voids) for(const v of r.voids){if(!v.closed)continue;let iv=0;for(let k=0;k<4;k++)if(_ccIn(r.gx[ci[k]],r.gy[cj[k]],v.poly))iv++;if(iv>=2)return false;}
-    return true;
-  }
+  function _celOk(ex,ey){ return !r.elKind || r.elKind[ey*r.nx+ex]>0; }
   ctx.strokeStyle='rgba(85,73,150,0.10)'; ctx.lineWidth=0.4;
   for(let ey=0;ey<r.ny;ey++) for(let ex=0;ex<r.nx;ex++){
     if(!_celOk(ex,ey)) continue;
@@ -4910,11 +5129,12 @@ function contour(cid,r,vals,title,overlay){
     ctx.closePath(); ctx.stroke();
   }
 
+  drawWalls(ctx,r,ws);
   // Column outlines on contour
   if(r.geo && r.columns){
     for(const col of r.columns){
       const{sx:cx,sy:cy}=ws(col.x,col.y);
-      const cW=Math.max(5,col.cx/r.Lx*pw), cH=Math.max(5,col.cy/r.Ly*ph);
+      const sc=ws(1,0).sx-ws(0,0).sx, cW=Math.max(5,col.cx*sc), cH=Math.max(5,col.cy*sc);
       ctx.fillStyle='rgba(255,255,255,0.55)'; ctx.fillRect(cx-cW/2,cy-cH/2,cW,cH);
       ctx.strokeStyle='rgba(85,73,150,0.9)'; ctx.lineWidth=1.5;
       ctx.strokeRect(cx-cW/2,cy-cH/2,cW,cH);
@@ -4954,13 +5174,11 @@ function contour(cid,r,vals,title,overlay){
   ctx.fillStyle='rgba(229,0,118,0.9)'; ctx.font='bold 11px Space Mono'; ctx.textAlign='center';
   ctx.fillText(title,x0+pw/2,y0-12);
   ctx.fillStyle='#808080'; ctx.font='10px Space Mono';
-  ctx.fillText(`Lx = ${r.Lx} m`,x0+pw/2,H-10);
+  ctx.fillText(`Lx = ${+(+r.Lx).toFixed(3)} m`,x0+pw/2,H-10);
   ctx.save(); ctx.translate(15,y0+ph/2); ctx.rotate(-Math.PI/2);
-  ctx.fillText(`Ly = ${r.Ly} m`,0,0); ctx.restore();
+  ctx.fillText(`Ly = ${+(+r.Ly).toFixed(3)} m`,0,0); ctx.restore();
 
-  // Min/Max markers
-  let mi=0,xi=0;
-  vals.forEach((vl,i)=>{if(vl<vals[mi])mi=i;if(vl>vals[xi])xi=i;});
+  // Min/Max markers (indices found with the colour range above)
   const mark=(idx,lbl,col)=>{
     const{sx,sy}=ws(r.xC[idx],r.yC[idx]);
     ctx.beginPath(); ctx.arc(sx,sy,5,0,Math.PI*2);
@@ -5052,11 +5270,17 @@ function nodalMoments(m,u,DbOf){
   const nn=m.nn, N=m.elN;
   const mx=new Float64Array(nn), my=new Float64Array(nn), mxy=new Float64Array(nn), cnt=new Float64Array(nn);
   for(let i=0;i<m.nEl;i++){
+    if(m.rigid&&m.rigid[i]) continue;              // rigid column footprint (as in the main analysis)
     const k=elementCurvature(m,i,u), Db=DbOf(i);
     const a=Db[0]*k[0]+Db[1]*k[1]+Db[2]*k[2], b=Db[3]*k[0]+Db[4]*k[1]+Db[5]*k[2], c=Db[6]*k[0]+Db[7]*k[1]+Db[8]*k[2];
     for(let q=0;q<4;q++){ const n=N[4*i+q]; mx[n]+=a; my[n]+=b; mxy[n]+=c; cnt[n]++; }
   }
   for(let n=0;n<nn;n++) if(cnt[n]>0){ mx[n]/=cnt[n]; my[n]/=cnt[n]; mxy[n]/=cnt[n]; }
+  for(const fp of m.fpGroups||[]){
+    let k=0,a=0,b=0,c=0;
+    for(const n of fp) if(cnt[n]>0){ a+=mx[n]; b+=my[n]; c+=mxy[n]; k++; }
+    if(k) for(const n of fp) if(cnt[n]===0){ mx[n]=a/k; my[n]=b/k; mxy[n]=c/k; }
+  }
   return {mx,my,mxy};
 }
 // Wood-Armer moments at nodes → mean of each element's four corners
@@ -5139,6 +5363,7 @@ async function computeLongTermDefl(r, onStep, opts){
     }
   }
   const DbOf=i=>DbArr[i];
+  const MPC=(m.colSup&&m.colSup.mpc)||[];
   const comb=(cDL,cSI,cIL,cFL,cU=0)=>{ const F=new Float64Array(m.ndof);
     for(let k=0;k<m.ndof;k++) F[k]=cDL*m.F.DL[k]+cSI*m.F.SIDL[k]+cIL*m.F.IL[k]+cFL*m.F.FL[k]+cU*m.F.U1[k]; return F; };
   const cIL=zetaComb==='qp'?psi2:1;
@@ -5169,6 +5394,7 @@ async function computeLongTermDefl(r, onStep, opts){
   const assembleSolveDec=async(label)=>{
     step('assemble',label+'ASSEMBLING',0);
     const K=await assembleModelK(m,DbOf,Ds,pct=>step('assemble',label+'ASSEMBLING',pct));
+    applyColumnSupports(m,K,m.E?E_kPa/m.E:1);           // column springs (creep-reduced) + footprints
     step('ldlt',label+'LDLT FACTORISATION',0); await yieldFrame();
     return await ldltDecomp(K,m.ndof,m.fixed,pct=>step('ldlt',label+'LDLT FACTORISATION',pct),null,m.symLT||(m.symLT={}));
   };
@@ -5177,7 +5403,7 @@ async function computeLongTermDefl(r, onStep, opts){
       const label=`ITERATION ${it} — `;
       dec=await assembleSolveDec(label);
       step('solve',label+'REDISTRIBUTING MOMENTS',null); await yieldFrame();
-      const u=ldltSolve(dec,F_crack,m.ndof);
+      const u=mpcRecover(MPC,ldltSolve(dec,F_crack,m.ndof));
       let wMax=0; for(let n=0;n<m.nn;n++) if(r.nodeActive[n]) wMax=Math.max(wMax,Math.abs(u[3*n]));
       lastDw=wPrev>0?Math.abs(wMax-wPrev)/wMax:1; wPrev=wMax;
       if(lastDw<TOL){ converged=true; break; }      // keep the ζ that this stiffness was built from
@@ -5192,7 +5418,7 @@ async function computeLongTermDefl(r, onStep, opts){
 
   // ── Quasi-permanent deflection + shrinkage curvature ─────────────────────
   step('solve','SOLVING QUASI-PERMANENT + SHRINKAGE',null); await yieldFrame();
-  const u_qp=ldltSolve(dec,F_qp,m.ndof);
+  const u_qp=mpcRecover(MPC,ldltSolve(dec,F_qp,m.ndof));
   let u_cs=null;
   if(eps_cs>0){
     // κ_cs per direction (sag-positive), FE sign convention: sagging curvature < 0
@@ -5204,7 +5430,7 @@ async function computeLongTermDefl(r, onStep, opts){
       };
       return [-one(secX[i],zx[i],fx[i]), -one(secY[i],zy[i],fy[i]), 0];
     };
-    u_cs=ldltSolve(dec,curvatureLoad(m,DbOf,kap),m.ndof);
+    u_cs=mpcRecover(MPC,ldltSolve(dec,mpcFoldF(MPC,curvatureLoad(m,DbOf,kap)),m.ndof));
   }
   // ── Results ───────────────────────────────────────────────────────────────
   const nn=r.nn, act=r.nodeActive;
@@ -5381,7 +5607,7 @@ function showLTResults(){
       `Cracked area ${(L.crackedFrac*100).toFixed(0)}% · max ζ = ${L.maxZeta.toFixed(2)} · ζ from ${L.zetaComb==='qp'?'quasi-permanent':'characteristic'} moments`+
       (L.iterate?` · ${L.iterations} iteration${L.iterations===1?'':'s'}${L.converged?'':' (not converged)'}`:' · no iteration')+
       (I&&I.worst?`<br><strong>Perimeter δ<sub>LT</sub> − δ<sub>ST</sub> = ${(I.worst.d*1000).toFixed(2)} mm</strong> vs L/${I.ratio} = ${(I.worst.lim*1000).toFixed(1)} mm `+
-        `(L = ${I.worst.L.toFixed(2)} m between supports, at x=${I.worst.x.toFixed(2)}, y=${I.worst.y.toFixed(2)}) → `+
+        `(L = ${I.worst.L.toFixed(2)} m between supports, at x=${(I.worst.x+(gRes.origin||{x:0}).x).toFixed(2)}, y=${(I.worst.y+(gRes.origin||{y:0}).y).toFixed(2)}) → `+
         `<strong style="color:${I.ok?'#1a8a3a':'var(--rubine)'}">${I.ok?'OK':'FAILS'}</strong> (utilisation ${(I.worst.util*100).toFixed(0)}%)<br>`+
         `δ<sub>ST</sub> (before finishes) = self-weight + ${L.st.qCon} kN/m² construction load, E<sub>cm</sub>, β = 1.0, no shrinkage `+
         `(max ${(L.st.maxW*1000).toFixed(2)} mm) · max δ<sub>LT</sub> − δ<sub>ST</sub> anywhere ${(L.maxInc*1000).toFixed(2)} mm`:'')+
@@ -5401,6 +5627,7 @@ let gCustZoom=1.0;     // scale multiplier relative to fit-to-window
 let gCustPanX=0;       // pan offset in canvas pixels (x)
 let gCustPanY=0;       // pan offset in canvas pixels (y)
 let _custPanDrag=null; // middle-mouse/space pan drag state
+let _custJustPanned=false; // a pan drag just ended — ignore the click it generates
 // PDF background state
 let gPdfCanvas=null;
 let gPdfPageMm={w:0,h:0}; // actual PDF page size in mm
@@ -5504,22 +5731,42 @@ function _custCvsFromEvent(e){
 }
 
 // ── Tool selection ────────────────────────────────────────────────────
+const CUST_TOOL_MSG={
+  boundary:()=>gCustClosed?'Boundary closed. Use ⊕ Column / ▬ Wall to add supports, ◻ Void for openings.'
+                          :'Click to add boundary points; click the first point to close. Right-click or Ctrl+Z to undo.',
+  column:()=>'Click inside or on the boundary to place a column (not inside a void).',
+  wall:()=>gCustWallStart?'Click the wall end point. Right-click to cancel.':'Click the wall start point (snaps to the slab edge).',
+  void:()=>'Click to add void corners; click the first corner to close. Right-click to undo a corner.',
+  delete:()=>'Click a column, wall, void or boundary point to delete it.',
+  pdfpan:()=>'Drag to move the PDF underlay.'
+};
 function custSetTool(t){
   gCustTool=t;
-  ['boundary','column','delete','pdfpan',
-   'boundary-m','column-m','wall-m','void-m','delete-m'].forEach(n=>{
-    const el=document.getElementById('ctbtn-'+n);
-    if(!el) return;
-    const baseName=n.replace('-m','');
-    el.className='ctbtn'+(t===baseName?(baseName==='column'?' col-on':' on'):'');
+  if(t!=='wall') gCustWallStart=null;
+  ['boundary','column','wall','void','delete','pdfpan'].forEach(n=>{
+    for(const id of ['ctbtn-'+n,'ctbtn-'+n+'-m']){
+      const el=document.getElementById(id); if(!el) continue;
+      el.classList.toggle('on',t===n && n!=='column');
+      el.classList.toggle('col-on',t===n && n==='column');
+    }
   });
   const cvs=document.getElementById('custCvs');
-  if(cvs) cvs.style.cursor=t==='delete'?'not-allowed':t==='column'?'cell':t==='pdfpan'?'move':'crosshair';
-  custStatus(t==='boundary'
-    ? (gCustClosed?'Boundary closed. Switch to ⊕ Column to add columns.':'Click to add boundary points. Right-click to undo. Click first point to close.')
-    : t==='column'?'Click inside the boundary to place a column.'
-    : 'Click any point or column to delete it.');
+  if(cvs) cvs.style.cursor=t==='delete'?'pointer':t==='column'?'cell':t==='pdfpan'?'move':'crosshair';
+  custStatus((CUST_TOOL_MSG[t]||(()=>''))());
   custRedraw();
+}
+// ── Undo: snapshot the layout before every edit ──
+const _custUndo=[];
+function custPush(){
+  _custUndo.push(JSON.stringify({b:gCustBoundary,c:gCustClosed,col:gCustColumns,w:gCustWalls,v:gCustVoids,av:gCustActiveVoid}));
+  if(_custUndo.length>200) _custUndo.shift();
+}
+function custUndo(){
+  if(!_custUndo.length){ custStatus('Nothing to undo.'); return; }
+  const st=JSON.parse(_custUndo.pop());
+  gCustBoundary=st.b; gCustClosed=st.c; gCustColumns=st.col; gCustWalls=st.w; gCustVoids=st.v; gCustActiveVoid=st.av;
+  gCustWallStart=null;
+  custStatus('Undone.'); custRedraw(); custUpdateSummary();
 }
 
 function custStatus(msg){
@@ -5528,16 +5775,29 @@ function custStatus(msg){
 }
 
 function custClear(){
+  custPush();
   gCustBoundary=[]; gCustClosed=false; gCustColumns=[];
   gCustWalls=[]; gCustVoids=[]; gCustWallStart=null; gCustActiveVoid=[];
-  custStatus('Cleared. Click to start placing boundary points.');
+  custStatus('Cleared (Ctrl+Z to undo). Click to start placing boundary points.');
   custRedraw();
   custUpdateSummary();
 }
 
+// Column size / height live in the sidebar (Column supports); the editor mirrors them
+function custSyncToSidebar(el,id){
+  const t=document.getElementById(id); if(!t) return;
+  t.value=el.value; t.dispatchEvent(new Event('input',{bubbles:true}));
+}
+function custSyncFromSidebar(){
+  for(const [m,sb] of [['custColCx','colCx'],['custColCy','colCy'],['custColH','colHb']]){
+    const a=document.getElementById(m), b=document.getElementById(sb);
+    if(a&&b&&document.activeElement!==a) a.value=b.value;
+  }
+}
 // ── Modal open/close ──────────────────────────────────────────────────
 function custOpenModal(){
   gCustZoom=1.0; gCustPanX=0; gCustPanY=0;
+  custSyncFromSidebar();
   document.getElementById('custModal').classList.add('open');
   // Hide the main controls FAB so it doesn't overlap the modal Done button
   const fab=document.getElementById('mobFab');
@@ -5579,7 +5839,26 @@ function custMouseMove(e){
   custRedraw();
 }
 
+// Do segments ab and cd cross (proper intersection)?
+function _segX(a,b,c,d){
+  const o=(p,q,r)=>Math.sign((q.x-p.x)*(r.y-p.y)-(q.y-p.y)*(r.x-p.x));
+  return o(a,b,c)*o(a,b,d)<0 && o(c,d,a)*o(c,d,b)<0;
+}
+function custSelfIntersects(poly){
+  const n=poly.length;
+  for(let i=0;i<n;i++) for(let j=i+2;j<n;j++){
+    if(i===0&&j===n-1) continue;
+    if(_segX(poly[i],poly[(i+1)%n],poly[j],poly[(j+1)%n])) return true;
+  }
+  return false;
+}
+function _distSeg(px,py,x0,y0,x1,y1){
+  const ex=x1-x0, ey=y1-y0, L2=ex*ex+ey*ey;
+  const t=L2>0?Math.max(0,Math.min(1,((px-x0)*ex+(py-y0)*ey)/L2)):0;
+  return Math.hypot(px-x0-t*ex,py-y0-t*ey);
+}
 function custClick(e){
+  if(_custJustPanned){ _custJustPanned=false; return; }   // the click that ends a pan drag
   const {cvs,px,py}=_custCvsFromEvent(e);
   const raw=_custS2W(cvs,px,py);
   const{x:wx,y:wy}=_custSnap(raw.x,raw.y);
@@ -5593,11 +5872,15 @@ function custClick(e){
       const fp=gCustBoundary[0];
       const{sx:fx,sy:fy}=_custW2S(cvs,fp.x,fp.y);
       if(Math.hypot(px-fx,py-fy)<14){
+        custPush();
         gCustClosed=true;
-        custStatus('Boundary closed ✓  Switch to ⊕ Column to add supports.');
+        custStatus(custSelfIntersects(gCustBoundary)
+          ? '⚠ Boundary closed but its edges cross — the slab outline is invalid. Undo (Ctrl+Z) or edit with Delete.'
+          : 'Boundary closed ✓  Use ⊕ Column / ▬ Wall to add supports.');
         custRedraw(); custUpdateSummary(); return;
       }
     }
+    custPush();
     gCustBoundary.push({x:wx,y:wy});
     custStatus('Point added ('+gCustBoundary.length+' pts). Click near first point to close.');
     custRedraw();
@@ -5609,7 +5892,9 @@ function custClick(e){
     if(!custPointInPoly(wx,wy,gCustBoundary)&&!_onBnd){
       custStatus('Column must be inside or on the boundary.');return;
     }
+    if(gCustVoids.some(v=>v.closed&&custPointInPoly(wx,wy,v.poly))){custStatus('Column cannot be inside a void.');return;}
     if(gCustColumns.some(c=>Math.hypot(c.x-wx,c.y-wy)<0.3)){custStatus('Too close to existing column.');return;}
+    custPush();
     gCustColumns.push({x:wx,y:wy});
     custStatus(gCustColumns.length+' column'+(gCustColumns.length===1?'':'s')+' placed.');
     custRedraw(); custUpdateSummary();
@@ -5619,6 +5904,8 @@ function custClick(e){
       custStatus('Wall start set at ('+wx.toFixed(1)+','+wy.toFixed(1)+'). Click end point.');
     } else {
       const t=+(document.getElementById('custWallT')||{value:0.25}).value||0.25;
+      if(Math.hypot(wx-gCustWallStart.x,wy-gCustWallStart.y)<1e-6){ custStatus('Wall needs two different points.'); return; }
+      custPush();
       gCustWalls.push({x0:gCustWallStart.x,y0:gCustWallStart.y,x1:wx,y1:wy,t});
       gCustWallStart=null;
       custStatus(gCustWalls.length+' wall(s). Click to start another or switch tool.');
@@ -5629,29 +5916,32 @@ function custClick(e){
       const fp=gCustActiveVoid[0];
       const{sx:fx,sy:fy}=_custW2S(cvs,fp.x,fp.y);
       if(Math.hypot(px-fx,py-fy)<14){
+        if(gCustClosed && !gCustActiveVoid.some(q=>custPointInPoly(q.x,q.y,gCustBoundary)||custDistToPoly(q.x,q.y,gCustBoundary)<1e-6)){
+          custStatus('Void is outside the slab — not added. Right-click to remove its points.'); return; }
+        custPush();
         gCustVoids.push({poly:[...gCustActiveVoid],closed:true});
         gCustActiveVoid=[];
         custStatus(gCustVoids.length+' void(s) defined.');
         custRedraw(); custUpdateSummary(); return;
       }
     }
+    custPush();
     gCustActiveVoid.push({x:wx,y:wy});
     custStatus('Void: '+gCustActiveVoid.length+' pts. Click near start to close.');
     custRedraw();
   } else if(gCustTool==='delete'){
-    const all=[
-      ...gCustBoundary.map((p,i)=>({type:'b',i,p})),
-      ...gCustColumns.map((p,i)=>({type:'c',i,p})),
-      ...gCustWalls.map((w,i)=>({type:'w',i,p:{x:(w.x0+w.x1)/2,y:(w.y0+w.y1)/2}})),
-      ...gCustVoids.filter(v=>v.poly&&v.poly.length>0).map((v,i)=>({type:'v',i,p:v.poly[0]}))
-    ];
+    // Nearest item in screen pixels: columns and boundary points by distance,
+    // walls by distance to the wall line, voids when clicking inside them.
+    const {scl}=_custTransform(cvs);
+    const rw=_custS2W(cvs,px,py);
     let best=null,bestD=Infinity;
-    all.forEach(({type,i,p})=>{
-      const{sx,sy}=_custW2S(cvs,p.x,p.y);
-      const d=Math.hypot(px-sx,py-sy);
-      if(d<bestD){bestD=d;best={type,i};}
-    });
+    const cand=(type,i,dPx)=>{ if(dPx<bestD){bestD=dPx;best={type,i};} };
+    gCustColumns.forEach((p,i)=>{ const q=_custW2S(cvs,p.x,p.y); cand('c',i,Math.hypot(px-q.sx,py-q.sy)-2); });
+    gCustBoundary.forEach((p,i)=>{ const q=_custW2S(cvs,p.x,p.y); cand('b',i,Math.hypot(px-q.sx,py-q.sy)); });
+    gCustWalls.forEach((w,i)=>cand('w',i,_distSeg(rw.x,rw.y,w.x0,w.y0,w.x1,w.y1)*scl));
+    gCustVoids.forEach((v,i)=>{ if(v.poly.length>=3&&custPointInPoly(rw.x,rw.y,v.poly)) cand('v',i,12); });
     if(best&&bestD<20){
+      custPush();
       if(best.type==='b'){
         gCustBoundary.splice(best.i,1);
         if(gCustBoundary.length<3) gCustClosed=false;
@@ -5673,16 +5963,12 @@ function custClick(e){
 
 function custRightClick(e){
   e.preventDefault();
-  if(gCustTool==='boundary'&&!gCustClosed&&gCustBoundary.length>0){
-    gCustBoundary.pop();
-    custStatus('Last point removed. '+gCustBoundary.length+' points remaining.');
-    custRedraw();
-  } else if(gCustTool==='wall'&&gCustWallStart){
+  if(gCustTool==='wall'&&gCustWallStart){
     gCustWallStart=null; custStatus('Wall cancelled.'); custRedraw();
   } else if(gCustTool==='void'&&gCustActiveVoid.length>0){
-    gCustActiveVoid.pop();
+    custPush(); gCustActiveVoid.pop();
     custStatus('Void point removed. '+gCustActiveVoid.length+' pts remaining.'); custRedraw();
-  }
+  } else custUndo();                                     // otherwise: undo the last edit
 }
 
 // ── Point-in-polygon (ray casting) ───────────────────────────────────
@@ -5848,8 +6134,8 @@ function custRedraw(){
   }
 
   // Columns — draw to scale using cx/cy inputs
-  const cx_m=+(document.getElementById('custColCx')||{value:400}).value/1000;
-  const cy_m=+(document.getElementById('custColCy')||{value:400}).value/1000;
+  const cx_m=numIn('colCx',400)/1000;
+  const cy_m=numIn('colCy',400)/1000;
   const cxPx=Math.max(6, scl*cx_m);
   const cyPx=Math.max(6, scl*cy_m);
   gCustColumns.forEach((col,idx)=>{
@@ -5876,8 +6162,10 @@ function custRedraw(){
     ctx.beginPath(); ctx.moveTo(x0s,y0s); ctx.lineTo(x1s,y1s); ctx.stroke();
     ctx.lineCap='butt';
     // Label
-    ctx.fillStyle='rgba(100,70,0,0.9)'; ctx.font='bold 9px Arial'; ctx.textAlign='center';
-    ctx.fillText('W'+(idx+1)+' ('+w.t+'m)',(x0s+x1s)/2,(y0s+y1s)/2-tPx/2-3);
+    ctx.fillStyle='rgba(100,70,0,0.9)'; ctx.font='bold 9px Arial';
+    const vert=Math.abs(x1s-x0s)<Math.abs(y1s-y0s);
+    ctx.textAlign=vert?'left':'center';
+    ctx.fillText('W'+(idx+1)+' ('+w.t+'m)',(x0s+x1s)/2+(vert?tPx/2+4:0),(y0s+y1s)/2+(vert?3:-tPx/2-3));
   });
   // Wall start preview
   if(gCustWallStart&&_custHover&&gCustTool==='wall'){
@@ -5935,11 +6223,11 @@ function custRedraw(){
 
   // Legend top-right
   // Legend
-  const cx_leg=+(document.getElementById('custColCx')||{value:400}).value;
-  const cy_leg=+(document.getElementById('custColCy')||{value:400}).value;
+  const cx_leg=numIn('colCx',400);
+  const cy_leg=numIn('colCy',400);
   const snap_leg=+(document.getElementById('custSnap')||{value:0.5}).value;
   ctx.fillStyle='rgba(80,80,80,0.6)'; ctx.font='10px Arial'; ctx.textAlign='right';
-  ctx.fillText(`${gCustBoundary.length} pts${gCustClosed?' ✓':''} · ${gCustColumns.length} cols · col ${cx_leg}×${cy_leg}mm · snap ${snap_leg}m · ×${gCustZoom.toFixed(2)}`, W-8, 18);
+  ctx.fillText(`${gCustBoundary.length} pts${gCustClosed?' ✓':''} · ${gCustColumns.length} cols · ${gCustWalls.length} walls · ${gCustVoids.length} voids · col ${cx_leg}×${cy_leg}mm · snap ${snap_leg}m · ×${gCustZoom.toFixed(2)}`, W-8, 18);
   // Zoom hint bottom-right
   ctx.fillStyle='rgba(80,80,80,0.4)'; ctx.font='9px Arial'; ctx.textAlign='right';
   ctx.fillText('Scroll to zoom · Middle-drag or Space+drag to pan', W-8, H-8);
@@ -5948,7 +6236,7 @@ function custRedraw(){
 // Signature of the custom layout, to detect edits made after an analysis run
 function custGeomSig(){
   return JSON.stringify([gCustBoundary,gCustClosed,gCustColumns,gCustWalls,gCustVoids.filter(v=>v.closed),
-    numIn('custLx',18),numIn('custLy',18),numIn('custColCx',400),numIn('custColCy',400)]);
+    numIn('colCx',400),numIn('colCy',400)]);
 }
 function custUpdateSummary(){
   if(gRes && gRes.mode==='custom' && gRes.custSig!==custGeomSig()) markResultsStale();
@@ -5957,17 +6245,32 @@ function custUpdateSummary(){
   if(!gCustClosed){
     el.innerHTML='<span style="color:var(--rubine)">No boundary defined.</span><br>Open editor to draw.';
   } else {
-    const cx=document.getElementById('custColCx')||{value:400};
-    const cy=document.getElementById('custColCy')||{value:400};
-    const ch=document.getElementById('custColH')||{value:3.5};
+    const bb=custBBox(), vA=gCustVoids.filter(v=>v.closed).reduce((s,v)=>s+custPolyArea(v.poly),0);
+    const area=custPolyArea(gCustBoundary)-vA;
+    const bad=custSelfIntersects(gCustBoundary), noSup=!gCustColumns.length&&!gCustWalls.length;
     el.innerHTML=
-      `Boundary: <strong>${gCustBoundary.length} pts</strong>${gCustClosed?' ✓':''} &nbsp;`+
-      `Cols: <strong>${gCustColumns.length}</strong> &nbsp;`+
-      `Walls: <strong>${gCustWalls.length}</strong> &nbsp;`+
-      `Voids: <strong>${gCustVoids.filter(v=>v.closed).length}</strong><br>`+
-      `Slab: <strong>${document.getElementById('custLx').value||18}×${document.getElementById('custLy').value||18} m</strong> &nbsp;`+
-      `Col: <strong>${cx.value}×${cy.value} mm</strong>, h=<strong>${ch.value} m</strong>`;
+      `Slab <strong>${area.toFixed(1)} m²</strong> within ${bb.w.toFixed(2)} × ${bb.h.toFixed(2)} m · `+
+      `<strong>${gCustColumns.length}</strong> col · <strong>${gCustWalls.length}</strong> wall · <strong>${gCustVoids.filter(v=>v.closed).length}</strong> void`+
+      (bad?'<br><span style="color:var(--rubine)">⚠ Boundary edges cross — fix in the editor.</span>':'')+
+      (noSup?'<br><span style="color:var(--rubine)">⚠ No columns or walls — add supports.</span>':'');
   }
+  custDrawPreview();
+}
+// Small plan of the custom layout in the sidebar
+function custDrawPreview(){
+  const cv=document.getElementById('custPrevCvs'); if(!cv) return;
+  const ctx=cv.getContext('2d'), W=cv.width, H=cv.height, pad=14;
+  ctx.clearRect(0,0,W,H); ctx.fillStyle='#F4F4F4'; ctx.fillRect(0,0,W,H);
+  const bb=custBBox(); if(!bb||!(bb.w>0&&bb.h>0)) return;
+  const sc=Math.min((W-2*pad)/bb.w,(H-2*pad)/bb.h), ox=(W-sc*bb.w)/2, oy=(H-sc*bb.h)/2;
+  const T=(x,y)=>[ox+(x-bb.x0)*sc, H-oy-(y-bb.y0)*sc];
+  const path=poly=>{ ctx.beginPath(); poly.forEach((q,i)=>{ const [a,b]=T(q.x,q.y); i?ctx.lineTo(a,b):ctx.moveTo(a,b); }); ctx.closePath(); };
+  path(gCustBoundary); ctx.fillStyle=gCustClosed?'rgba(229,0,118,0.08)':'rgba(0,0,0,0.03)'; ctx.fill();
+  ctx.strokeStyle='#E50076'; ctx.lineWidth=1.5; ctx.stroke();
+  gCustVoids.filter(v=>v.closed).forEach(v=>{ path(v.poly); ctx.fillStyle='#F4F4F4'; ctx.fill(); ctx.strokeStyle='rgba(200,40,40,0.8)'; ctx.lineWidth=1; ctx.stroke(); });
+  gCustWalls.forEach(w=>{ const [a,b]=T(w.x0,w.y0),[c,d]=T(w.x1,w.y1); ctx.strokeStyle='rgba(100,70,0,0.85)'; ctx.lineWidth=Math.max(2,w.t*sc); ctx.beginPath(); ctx.moveTo(a,b); ctx.lineTo(c,d); ctx.stroke(); });
+  const cw=Math.max(4,numIn('colCx',400)/1000*sc), ch=Math.max(4,numIn('colCy',400)/1000*sc);
+  ctx.fillStyle='rgba(85,73,150,0.85)'; gCustColumns.forEach(c=>{ const [a,b]=T(c.x,c.y); ctx.fillRect(a-cw/2,b-ch/2,cw,ch); });
 }
 
 // ── PDF background helpers ───────────────────────────────────────────────────
@@ -6074,7 +6377,10 @@ function custInit(){
     document.getElementById('pdfOffY').value=gPdfOffY.toFixed(2);
     custRedraw();
   });
-  window.addEventListener('mouseup',()=>{ _pdfDrag=null; _custPanDrag=null; });
+  window.addEventListener('mouseup',()=>{
+    if(_custPanDrag && _custPanDrag.moved) _custJustPanned=true;   // swallow the click that follows
+    _pdfDrag=null; _custPanDrag=null;
+  });
   // Mouse wheel zoom — zoom towards cursor position
   cvs.addEventListener('wheel',e=>{
     e.preventDefault();
@@ -6104,11 +6410,18 @@ function custInit(){
   });
   window.addEventListener('mousemove',e=>{
     if(!_custPanDrag) return;
+    if(Math.hypot(e.clientX-_custPanDrag.px,e.clientY-_custPanDrag.py)>3) _custPanDrag.moved=true;
     gCustPanX=_custPanDrag.panX+(e.clientX-_custPanDrag.px);
     gCustPanY=_custPanDrag.panY+(e.clientY-_custPanDrag.py);
     custRedraw();
   });
-  window.addEventListener('keydown',e=>{ if(e.code==='Space'&&document.getElementById('custModal').classList.contains('open')){ _spaceDown=true; if(cvs) cvs.style.cursor='grab'; e.preventDefault(); }});
+  window.addEventListener('keydown',e=>{
+    if(!document.getElementById('custModal').classList.contains('open')) return;
+    const tag=e.target&&e.target.tagName; if(tag==='INPUT'||tag==='SELECT') return;
+    if(e.code==='Space'){ _spaceDown=true; if(cvs) cvs.style.cursor='grab'; e.preventDefault(); }
+    else if((e.ctrlKey||e.metaKey)&&e.key.toLowerCase()==='z'){ custUndo(); e.preventDefault(); }
+    else if(e.key==='Escape'){ if(gCustWallStart){ gCustWallStart=null; custSetTool(gCustTool); } }
+  });
   window.addEventListener('keyup',e=>{ if(e.code==='Space'){ _spaceDown=false; const t=gCustTool; custSetTool(t); }});
   // Resize canvas when modal opens / window resizes
   window.addEventListener('resize',()=>{
@@ -6119,21 +6432,29 @@ function custInit(){
 }
 
 // Get custom geometry for solver
+// Bounding box of the drawn slab (the analysis mesh covers this, not the whole drawing area)
+function custBBox(){
+  if(gCustBoundary.length<3) return null;
+  let x0=Infinity,y0=Infinity,x1=-Infinity,y1=-Infinity;
+  for(const p of gCustBoundary){ x0=Math.min(x0,p.x); y0=Math.min(y0,p.y); x1=Math.max(x1,p.x); y1=Math.max(y1,p.y); }
+  return {x0,y0,w:x1-x0,h:y1-y0};
+}
+function custPolyArea(poly){ let a=0; for(let i=0;i<poly.length;i++){ const p=poly[i],q=poly[(i+1)%poly.length]; a+=p.x*q.y-q.x*p.y; } return Math.abs(a)/2; }
+// Get custom geometry for solver — translated so the slab's bounding box starts at (0,0)
 function custGetGeometry(){
   if(!gCustClosed||gCustBoundary.length<3)
     throw new Error('Custom layout: boundary not closed. Open the Layout Editor and close the boundary first.');
-  if(gCustColumns.length===0)
-    throw new Error('Custom layout: no columns placed. Open the Layout Editor and add at least one column.');
-  const Lx=+document.getElementById('custLx').value||18;
-  const Ly=+document.getElementById('custLy').value||18;
-  const cx_m=+(document.getElementById('custColCx')||{value:400}).value/1000;
-  const cy_m=+(document.getElementById('custColCy')||{value:400}).value/1000;
-  const h_col=+(document.getElementById('custColH')||{value:3.5}).value;
-  return{Lx,Ly,boundary:gCustBoundary,
-    columns:gCustColumns.map(c=>({x:c.x,y:c.y,cx:cx_m,cy:cy_m,h:h_col})),
-    poly:gCustBoundary,
-    walls:gCustWalls,
-    voids:gCustVoids.filter(v=>v.closed)};
+  if(gCustColumns.length===0 && gCustWalls.length===0)
+    throw new Error('Custom layout: no supports. Open the Layout Editor and add at least one column or wall.');
+  const bb=custBBox();
+  if(!(bb.w>0&&bb.h>0)) throw new Error('Custom layout: the boundary has no area.');
+  const ci=colSupportInputs();
+  const T=p=>({x:p.x-bb.x0,y:p.y-bb.y0});
+  return{Lx:bb.w,Ly:bb.h,origin:{x:bb.x0,y:bb.y0},
+    columns:gCustColumns.map(c=>({...T(c),cx:ci.cx,cy:ci.cy})),
+    poly:gCustBoundary.map(T),
+    walls:gCustWalls.map(w=>({x0:w.x0-bb.x0,y0:w.y0-bb.y0,x1:w.x1-bb.x0,y1:w.y1-bb.y0,t:w.t})),
+    voids:gCustVoids.filter(v=>v.closed).map(v=>({poly:v.poly.map(T),closed:true}))};
 }
 
 /* ================================================================
@@ -6189,6 +6510,7 @@ drawPreview(colP());
 calcSW();
 ltUpdateCreep();
 rebarMeshInfo();
+colSupChanged();
 // Any edit to an analysis input marks the results out of date (see _onInputEdit)
 ['input','change'].forEach(ev=>document.querySelector('.sidebar').addEventListener(ev,_onInputEdit));
 document.addEventListener('DOMContentLoaded',()=>{   // the layout editor is declared after this script
@@ -6201,6 +6523,8 @@ document.addEventListener('DOMContentLoaded',()=>{   // the layout editor is dec
   <div id="custModalBox">
     <div id="custModalHeader">
       <span id="custModalTitle">Custom Slab Layout Editor</span>
+      <button class="ctbtn" onclick="custUndo()" title="Undo (Ctrl+Z)" style="flex:none;padding:6px 12px;">↶ Undo</button>
+      <button class="ctbtn" onclick="custCloseModal()" style="flex:none;padding:6px 14px;color:white;background:var(--purple);border-color:var(--purple);">✓ Done</button>
       <button onclick="custCloseModal()"
               style="background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--text-dim);padding:4px 8px;"
               title="Close">✕</button>
@@ -6236,23 +6560,23 @@ document.addEventListener('DOMContentLoaded',()=>{   // the layout editor is dec
         </div>
         <div class="fld" style="margin-top:4px;">
           <label>Wall thickness (m)</label>
-          <input type="number" id="custWallT" value="0.25" step="0.05" min="0.05" max="2">
+          <input type="number" id="custWallT" value="0.25" step="0.05" min="0.05" max="2" oninput="custRedraw()">
         </div>
 
-        <div style="font-family:Arial,sans-serif;font-weight:700;font-size:0.6rem;letter-spacing:1px;text-transform:uppercase;color:var(--text-dim);margin-top:4px;margin-bottom:4px;">Column Dimensions</div>
+        <div style="font-family:Arial,sans-serif;font-weight:700;font-size:0.6rem;letter-spacing:1px;text-transform:uppercase;color:var(--text-dim);margin-top:4px;margin-bottom:4px;">Columns <span style="font-weight:400;text-transform:none;letter-spacing:0">(same as sidebar → Column supports)</span></div>
         <div class="row2">
           <div class="fld"><label>Width cx (mm)</label>
-            <input type="number" id="custColCx" value="400" step="50" min="100"></div>
+            <input type="number" id="custColCx" value="400" step="50" min="100" oninput="custSyncToSidebar(this,'colCx')"></div>
           <div class="fld"><label>Depth cy (mm)</label>
-            <input type="number" id="custColCy" value="400" step="50" min="100"></div>
+            <input type="number" id="custColCy" value="400" step="50" min="100" oninput="custSyncToSidebar(this,'colCy')"></div>
         </div>
         <div class="fld">
-          <label>Storey Height h (m)</label>
-          <input type="number" id="custColH" value="3.5" step="0.25" min="1" max="20">
+          <label>Storey height below (m)</label>
+          <input type="number" id="custColH" value="3.5" step="0.25" min="0" max="20" oninput="custSyncToSidebar(this,'colHb')">
         </div>
         <div class="fld">
           <label>Snap to grid (m)</label>
-          <input type="number" id="custSnap" value="0.5" step="0.25" min="0" max="5">
+          <input type="number" id="custSnap" value="0.5" step="0.25" min="0" max="5" oninput="custRedraw()">
         </div>
 
         <!-- PDF Background -->
@@ -6322,6 +6646,7 @@ document.addEventListener('DOMContentLoaded',()=>{   // the layout editor is dec
         <button class="ctbtn" id="ctbtn-wall-m" onclick="custSetTool('wall')">▬<br>Wall</button>
         <button class="ctbtn" id="ctbtn-void-m" onclick="custSetTool('void')">◻<br>Void</button>
         <button class="ctbtn" id="ctbtn-delete-m" onclick="custSetTool('delete')">✕<br>Delete</button>
+        <button class="ctbtn" onclick="custUndo()">↶<br>Undo</button>
         <button class="ctbtn" onclick="custClear()" style="color:var(--rubine);border-color:var(--rubine);">⊘<br>Clear</button>
         <button class="ctbtn" onclick="custCloseModal()" style="color:white;background:var(--purple);border-color:var(--purple);">✓<br>Done</button>
       </div>
